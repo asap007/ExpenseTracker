@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { PlusCircle, Pencil, Trash2, Receipt } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { format } from 'date-fns';
-import { useRouter } from 'next/navigation'; // Correct import
+import { useRouter } from 'next/navigation';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -28,8 +28,9 @@ import { useToast } from '@/components/ui/use-toast';
 import { Toaster } from '@/components/ui/toaster';
 import ExpenseForm from '@/components/expenses/expense-form';
 import { Badge } from '@/components/ui/badge';
-import { z } from "zod"; // Import Zod
-import { ExpenseFormValues } from "@/components/expenses/expense-form" //Change for you porpuse
+import { z } from "zod";
+import { ExpenseFormValues } from "@/components/expenses/expense-form"
+
 type Category = {
   id: string;
   name: string;
@@ -41,7 +42,7 @@ type Expense = {
   description: string;
   date: string; // ISO string format
   categoryId: string;
-  category?: {
+  category?: {  // This is now correctly populated by the API
     name: string;
   };
   receiptUrl?: string | null;
@@ -50,7 +51,7 @@ type Expense = {
 export default function DashboardPage() {
   const { data: session } = useSession();
   const { toast } = useToast();
-  const router = useRouter(); // Correct usage
+  const router = useRouter();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -60,24 +61,19 @@ export default function DashboardPage() {
 
 
   useEffect(() => {
-    if (session) { // Only fetch if session is available
-        fetchExpenses();
-        fetchCategories();
+    if (session) {
+      fetchExpenses();
+      fetchCategories();
     }
+  }, [session]);
 
-  }, [session]); // Add session as a dependency
-
-  const fetchExpenses = async () => {
+    const fetchExpenses = async () => {
     try {
       const response = await fetch('/api/expenses');
       if (!response.ok) throw new Error('Failed to fetch expenses');
       const data = await response.json();
-        // Ensure category is populated before setting
-        const expensesWithCategories = data.map((expense: Expense) => ({
-          ...expense,
-          category: categories.find(c => c.id === expense.categoryId)
-        }));
-      setExpenses(expensesWithCategories);
+      setExpenses(data); // <--- Set expenses directly, they *include* category
+
     } catch (error) {
       console.error('Error fetching expenses:', error);
       toast({
@@ -106,7 +102,7 @@ export default function DashboardPage() {
     }
   };
 
-  // Define Zod schema to match your form
+    // Define Zod schema to match your form
     const expenseFormSchema = z.object({
     amount: z.coerce.number().positive({ message: "Amount must be positive" }),
     description: z.string().min(3, { message: "Description must be at least 3 characters" }).max(255, { message: "Description must be less than 255 characters" }),
@@ -155,12 +151,13 @@ export default function DashboardPage() {
     }
   };
 
-const handleUpdateExpense = async (data: ExpenseFormValues) => {
+  const handleUpdateExpense = async (data: ExpenseFormValues) => {
     if (!currentExpense) return;
     
     const formData = new FormData();
     formData.append("amount", data.amount.toString());
     formData.append("description", data.description);
+    // Ensure date is converted to ISO string
     formData.append("date", data.date.toISOString());
     formData.append("categoryId", data.categoryId);
     if (data.receiptUrl) {
@@ -174,21 +171,20 @@ const handleUpdateExpense = async (data: ExpenseFormValues) => {
         });
 
         if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Failed to update expense: ${errorText}`);
+            throw new Error('Failed to update expense');
         }
 
         await fetchExpenses();
-        setCurrentExpense(null);  // Close dialog
+        setCurrentExpense(null);
         toast({
             title: 'Success',
             description: 'Expense updated successfully!',
         });
-    } catch (error:any) {
+    } catch (error) {
         console.error('Error updating expense:', error);
         toast({
             title: 'Error',
-            description: error.message || 'Failed to update expense. Please try again.',
+            description: 'Failed to update expense. Please try again.',
             variant: 'destructive',
         });
     }
