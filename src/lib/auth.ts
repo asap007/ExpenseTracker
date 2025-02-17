@@ -5,6 +5,7 @@ import { compare } from "bcryptjs";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { type NextAuthConfig } from "next-auth";
 
+// Export the auth configuration
 export const authConfig = {
   providers: [
     CredentialsProvider({
@@ -71,4 +72,8 @@ export const authConfig = {
   },
 } satisfies NextAuthConfig;
 
+// Export NextAuth functions
 export const { auth, signIn, signOut } = NextAuth(authConfig);
+
+// Export authConfig for use with getServerSession
+export const authOptions = authConfig;
