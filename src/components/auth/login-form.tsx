@@ -7,6 +7,7 @@ import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { z } from "zod";
+import { motion } from "framer-motion";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
@@ -53,8 +54,93 @@ export function LoginForm() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4">
-      <Card className="w-full max-w-md">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4 relative overflow-hidden">
+      {/* Wavy Grid Background Animation */}
+      <div className="absolute inset-0 z-0 overflow-hidden">
+        {/* Base Grid */}
+        <div className="absolute inset-0" style={{ 
+          backgroundImage: `
+            linear-gradient(to right, rgba(209, 213, 219, 0.3) 1px, transparent 1px),
+            linear-gradient(to bottom, rgba(209, 213, 219, 0.3) 1px, transparent 1px)
+          `,
+          backgroundSize: '40px 40px',
+          backgroundPosition: 'center center'
+        }} />
+        
+        {/* Wavy Grid Animation - Layer 1 */}
+        <motion.div 
+          className="absolute inset-0"
+          style={{ 
+            backgroundImage: `
+              linear-gradient(to right, rgba(156, 163, 175, 0.2) 1px, transparent 1px),
+              linear-gradient(to bottom, rgba(156, 163, 175, 0.2) 1px, transparent 1px)
+            `,
+            backgroundSize: '50px 50px',
+            backgroundPosition: 'center center'
+          }}
+          animate={{
+            scale: [1, 1.05, 1],
+            x: [0, 15, 0],
+            y: [0, 10, 0]
+          }}
+          transition={{
+            duration: 8,
+            repeat: Infinity,
+            repeatType: "mirror",
+            ease: "easeInOut"
+          }}
+        />
+        
+        {/* Wavy Grid Animation - Layer 2 */}
+        <motion.div 
+          className="absolute inset-0"
+          style={{ 
+            backgroundImage: `
+              linear-gradient(to right, rgba(156, 163, 175, 0.15) 1px, transparent 1px),
+              linear-gradient(to bottom, rgba(156, 163, 175, 0.15) 1px, transparent 1px)
+            `,
+            backgroundSize: '35px 35px',
+            backgroundPosition: 'center center'
+          }}
+          animate={{
+            scale: [1.05, 1, 1.05],
+            x: [0, -10, 0],
+            y: [0, -5, 0],
+            rotate: [0, 0.5, 0]
+          }}
+          transition={{
+            duration: 10,
+            repeat: Infinity,
+            repeatType: "mirror",
+            ease: "easeInOut"
+          }}
+        />
+        
+        {/* Additional accent grid points at intersections */}
+        <motion.div 
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            backgroundImage: `
+              radial-gradient(circle, rgba(99, 102, 241, 0.15) 1px, transparent 1px)
+            `,
+            backgroundSize: '40px 40px',
+            backgroundPosition: 'center center'
+          }}
+          animate={{
+            scale: [1, 1.03, 1],
+            x: [0, 5, 0],
+            y: [0, 3, 0]
+          }}
+          transition={{
+            duration: 6,
+            repeat: Infinity,
+            repeatType: "mirror",
+            ease: "easeInOut"
+          }}
+        />
+      </div>
+
+      <Card className="w-full max-w-md relative z-10 shadow-lg backdrop-blur-md bg-white/90">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-bold text-center">Welcome back</CardTitle>
           <p className="text-center text-sm text-gray-500">

@@ -29,12 +29,98 @@ export default function Home() {
   ];
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4">
+    <main className="min-h-screen bg-gray-50 relative overflow-hidden">
+      {/* Wavy Grid Background Animation - More Visible */}
+      <div className="absolute inset-0 z-0 overflow-hidden">
+        {/* Base Grid */}
+        <div className="absolute inset-0" style={{ 
+          backgroundImage: `
+            linear-gradient(to right, rgba(209, 213, 219, 0.3) 1px, transparent 1px),
+            linear-gradient(to bottom, rgba(209, 213, 219, 0.3) 1px, transparent 1px)
+          `,
+          backgroundSize: '40px 40px',
+          backgroundPosition: 'center center'
+        }} />
+        
+        {/* Wavy Grid Animation - Layer 1 */}
+        <motion.div 
+          className="absolute inset-0"
+          style={{ 
+            backgroundImage: `
+              linear-gradient(to right, rgba(156, 163, 175, 0.2) 1px, transparent 1px),
+              linear-gradient(to bottom, rgba(156, 163, 175, 0.2) 1px, transparent 1px)
+            `,
+            backgroundSize: '50px 50px',
+            backgroundPosition: 'center center'
+          }}
+          animate={{
+            scale: [1, 1.05, 1],
+            x: [0, 15, 0],
+            y: [0, 10, 0]
+          }}
+          transition={{
+            duration: 8,
+            repeat: Infinity,
+            repeatType: "mirror",
+            ease: "easeInOut"
+          }}
+        />
+        
+        {/* Wavy Grid Animation - Layer 2 */}
+        <motion.div 
+          className="absolute inset-0"
+          style={{ 
+            backgroundImage: `
+              linear-gradient(to right, rgba(156, 163, 175, 0.15) 1px, transparent 1px),
+              linear-gradient(to bottom, rgba(156, 163, 175, 0.15) 1px, transparent 1px)
+            `,
+            backgroundSize: '35px 35px',
+            backgroundPosition: 'center center'
+          }}
+          animate={{
+            scale: [1.05, 1, 1.05],
+            x: [0, -10, 0],
+            y: [0, -5, 0],
+            rotate: [0, 0.5, 0]
+          }}
+          transition={{
+            duration: 10,
+            repeat: Infinity,
+            repeatType: "mirror",
+            ease: "easeInOut"
+          }}
+        />
+        
+        {/* Additional accent grid points at intersections */}
+        <motion.div 
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            backgroundImage: `
+              radial-gradient(circle, rgba(99, 102, 241, 0.15) 1px, transparent 1px)
+            `,
+            backgroundSize: '40px 40px',
+            backgroundPosition: 'center center'
+          }}
+          animate={{
+            scale: [1, 1.03, 1],
+            x: [0, 5, 0],
+            y: [0, 3, 0]
+          }}
+          transition={{
+            duration: 6,
+            repeat: Infinity,
+            repeatType: "mirror",
+            ease: "easeInOut"
+          }}
+        />
+      </div>
+
+      {/* Content */}
       <motion.div 
         initial="hidden"
         animate="show"
         variants={container}
-        className="max-w-4xl mx-auto pt-20 px-4"
+        className="max-w-4xl mx-auto pt-20 px-4 relative z-10"
       >
         {/* Hero Section */}
         <motion.div 
@@ -42,13 +128,13 @@ export default function Home() {
           className="text-center space-y-6 mb-16"
         >
           <motion.h1 
-            className="text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-purple-600"
+            className="text-5xl font-bold text-black"
             whileHover={{ scale: 1.02 }}
           >
             Expense Tracker
           </motion.h1>
           <motion.p 
-            className="text-xl text-gray-600 max-w-2xl mx-auto"
+            className="text-xl text-gray-700 max-w-2xl mx-auto"
             variants={item}
           >
             Take control of your finances with our intuitive expense tracking solution
@@ -65,11 +151,11 @@ export default function Home() {
               key={index}
               variants={item}
               whileHover={{ scale: 1.05 }}
-              className="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow"
+              className="bg-white p-6 rounded-xl shadow-lg hover:shadow-xl transition-shadow border border-gray-200 backdrop-blur-md bg-white/90"
             >
-              <feature.icon className="w-12 h-12 text-blue-600 mb-4" />
-              <h3 className="text-xl font-semibold mb-2">{feature.title}</h3>
-              <p className="text-gray-600">{feature.description}</p>
+              <feature.icon className="w-12 h-12 text-black mb-4" />
+              <h3 className="text-xl font-semibold mb-2 text-black">{feature.title}</h3>
+              <p className="text-gray-700">{feature.description}</p>
             </motion.div>
           ))}
         </motion.div>
@@ -85,7 +171,7 @@ export default function Home() {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
-              <Button className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-8 py-6 text-lg flex items-center justify-center gap-2">
+              <Button className="w-full sm:w-auto bg-black hover:bg-gray-900 text-white px-8 py-6 text-lg flex items-center justify-center gap-2">
                 Get Started
                 <ChevronRight className="w-5 h-5" />
               </Button>
@@ -100,7 +186,7 @@ export default function Home() {
             >
               <Button 
                 variant="outline" 
-                className="w-full sm:w-auto border-2 border-blue-600 text-blue-600 hover:bg-blue-50 px-8 py-6 text-lg"
+                className="w-full sm:w-auto border-2 border-black text-black hover:bg-gray-50 px-8 py-6 text-lg"
               >
                 Register
               </Button>
