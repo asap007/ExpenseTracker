@@ -122,6 +122,7 @@ export default function ExpenseForm({
                   <PopoverTrigger asChild>
                     <FormControl>
                       <Button
+                        type="button" // Add this line to prevent form submission
                         variant="outline"
                         className={cn(
                           "pl-3 text-left font-normal",
