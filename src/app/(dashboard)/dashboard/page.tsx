@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { PlusCircle, Pencil, Trash2, Receipt } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { format } from 'date-fns';
-import { useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation'; // Correct import
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -28,7 +28,8 @@ import { useToast } from '@/components/ui/use-toast';
 import { Toaster } from '@/components/ui/toaster';
 import ExpenseForm from '@/components/expenses/expense-form';
 import { Badge } from '@/components/ui/badge';
-
+import { z } from "zod"; // Import Zod
+import { ExpenseFormValues } from "@/components/expenses/expense-form" //Change for you porpuse
 type Category = {
   id: string;
   name: string;
@@ -49,7 +50,7 @@ type Expense = {
 export default function DashboardPage() {
   const { data: session } = useSession();
   const { toast } = useToast();
-  const router = useRouter();
+  const router = useRouter(); // Correct usage
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -57,18 +58,26 @@ export default function DashboardPage() {
   const [currentExpense, setCurrentExpense] = useState<Expense | null>(null);
   const [deleteExpenseId, setDeleteExpenseId] = useState<string | null>(null);
 
+
   useEffect(() => {
-    // Fetch expenses and categories when component mounts
-    fetchExpenses();
-    fetchCategories();
-  }, []);
+    if (session) { // Only fetch if session is available
+        fetchExpenses();
+        fetchCategories();
+    }
+
+  }, [session]); // Add session as a dependency
 
   const fetchExpenses = async () => {
     try {
       const response = await fetch('/api/expenses');
       if (!response.ok) throw new Error('Failed to fetch expenses');
       const data = await response.json();
-      setExpenses(data);
+        // Ensure category is populated before setting
+        const expensesWithCategories = data.map((expense: Expense) => ({
+          ...expense,
+          category: categories.find(c => c.id === expense.categoryId)
+        }));
+      setExpenses(expensesWithCategories);
     } catch (error) {
       console.error('Error fetching expenses:', error);
       toast({
@@ -89,19 +98,48 @@ export default function DashboardPage() {
       setCategories(data);
     } catch (error) {
       console.error('Error fetching categories:', error);
+        toast({
+            title: "Error",
+            description: "Failed to load categories",
+            variant: "destructive"
+        })
     }
   };
 
-  const handleAddExpense = async (formData: FormData) => {
+  // Define Zod schema to match your form
+    const expenseFormSchema = z.object({
+    amount: z.coerce.number().positive({ message: "Amount must be positive" }),
+    description: z.string().min(3, { message: "Description must be at least 3 characters" }).max(255, { message: "Description must be less than 255 characters" }),
+    date: z.date(),
+    categoryId: z.string().min(1, { message: "Please select a category" }),
+    receiptUrl: z.string().optional(),
+    });
+
+    // Create a type based on the Zod schema
+    type ExpenseFormValues = z.infer<typeof expenseFormSchema>;
+
+
+  const handleAddExpense = async (data: ExpenseFormValues) => {
+
+    const formData = new FormData();
+    formData.append("amount", data.amount.toString());
+    formData.append("description", data.description);
+    formData.append("date", data.date.toISOString()); // Crucial: Convert Date to ISO string
+    formData.append("categoryId", data.categoryId);
+    if (data.receiptUrl) {
+      formData.append("receiptUrl", data.receiptUrl);
+    }
+
+
     try {
       const response = await fetch('/api/expenses', {
         method: 'POST',
-        body: formData,
+        body: formData, // Correct: Use formData
       });
 
       if (!response.ok) throw new Error('Failed to add expense');
-      
-      await fetchExpenses();
+
+      await fetchExpenses(); // Refresh the expenses list
       setIsAddDialogOpen(false);
       toast({
         title: 'Success',
@@ -117,44 +155,58 @@ export default function DashboardPage() {
     }
   };
 
-  const handleUpdateExpense = async (formData: FormData) => {
+const handleUpdateExpense = async (data: ExpenseFormValues) => {
     if (!currentExpense) return;
     
-    try {
-      const response = await fetch(`/api/expenses/${currentExpense.id}`, {
-        method: 'PUT',
-        body: formData,
-      });
-
-      if (!response.ok) throw new Error('Failed to update expense');
-      
-      await fetchExpenses();
-      setCurrentExpense(null);
-      toast({
-        title: 'Success',
-        description: 'Expense updated successfully!',
-      });
-    } catch (error) {
-      console.error('Error updating expense:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to update expense. Please try again.',
-        variant: 'destructive',
-      });
+    const formData = new FormData();
+    formData.append("amount", data.amount.toString());
+    formData.append("description", data.description);
+    formData.append("date", data.date.toISOString());
+    formData.append("categoryId", data.categoryId);
+    if (data.receiptUrl) {
+      formData.append("receiptUrl", data.receiptUrl);
     }
-  };
+    
+    try {
+        const response = await fetch(`/api/expenses/${currentExpense.id}`, {
+            method: 'PUT',
+            body: formData,
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Failed to update expense: ${errorText}`);
+        }
+
+        await fetchExpenses();
+        setCurrentExpense(null);  // Close dialog
+        toast({
+            title: 'Success',
+            description: 'Expense updated successfully!',
+        });
+    } catch (error:any) {
+        console.error('Error updating expense:', error);
+        toast({
+            title: 'Error',
+            description: error.message || 'Failed to update expense. Please try again.',
+            variant: 'destructive',
+        });
+    }
+};
+
+
 
   const handleDeleteExpense = async () => {
     if (!deleteExpenseId) return;
-    
+
     try {
       const response = await fetch(`/api/expenses/${deleteExpenseId}`, {
         method: 'DELETE',
       });
 
       if (!response.ok) throw new Error('Failed to delete expense');
-      
-      await fetchExpenses();
+
+      await fetchExpenses(); // Refresh the expenses list
       setDeleteExpenseId(null);
       toast({
         title: 'Success',
@@ -173,8 +225,9 @@ export default function DashboardPage() {
   // Calculate total expenses
   const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
 
+
   if (!session) {
-    return null; // This will prevent rendering issues before redirect happens
+      return null;
   }
 
   return (
@@ -226,7 +279,8 @@ export default function DashboardPage() {
                       {format(new Date(expense.date), 'MMM dd, yyyy')}
                     </TableCell>
                     <TableCell>{expense.description}</TableCell>
-                    <TableCell>{expense.category?.name || 'Uncategorized'}</TableCell>
+                    {/* Use optional chaining and nullish coalescing for safety */}
+                    <TableCell>{expense.category?.name ?? 'Uncategorized'}</TableCell>
                     <TableCell className="text-right">${expense.amount.toFixed(2)}</TableCell>
                     <TableCell>
                       <div className="flex items-center space-x-2">
