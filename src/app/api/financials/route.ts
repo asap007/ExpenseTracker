@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
     // Get user's income
     const income = await prisma.income.findFirst({
       where: { userId: user.id },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: "desc" },
     });
 
     // Get expenses for the last 30 days
@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
     // Calculate totals and prepare data for AI analysis
     const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
     const monthlyIncome = income?.amount || 0;
-    
+
     const expensesByCategory = expenses.reduce((acc, expense) => {
       const category = expense.category.name;
       if (!acc[category]) acc[category] = 0;
@@ -68,7 +68,7 @@ export async function GET(req: NextRequest) {
       Expenses by Category:
       ${Object.entries(expensesByCategory)
         .map(([category, amount]) => `${category}: $${amount}`)
-        .join('\n')}
+        .join("\n")}
 
       Please provide:
       1. A brief analysis of spending patterns
@@ -120,6 +120,13 @@ export async function POST(req: NextRequest) {
 
     const { monthlyIncome } = await req.json();
 
+    if (!monthlyIncome || isNaN(parseFloat(monthlyIncome))) {
+      return NextResponse.json(
+        { error: "Invalid monthly income value" },
+        { status: 400 }
+      );
+    }
+
     const user = await prisma.user.findUnique({
       where: { email: session.user.email },
     });
@@ -128,7 +135,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    // Create or update income record
+    // Create a new income record
     await prisma.income.create({
       data: {
         amount: parseFloat(monthlyIncome),

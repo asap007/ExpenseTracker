@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from "recharts";
 import { DollarSign, AlertCircle, TrendingUp, Sparkles } from "lucide-react";
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
+const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884d8"];
 
 // Define types for our data structure
 type ExpenseCategory = {
@@ -27,6 +27,12 @@ type AIInsights = {
   };
 };
 
+type SavingsPlan = {
+  savingsPlan: string;
+  recommendations: string[];
+  tips: string[];
+};
+
 type AnalyticsData = {
   currentIncome: number;
   totalExpenses: number;
@@ -41,6 +47,9 @@ export default function AnalyticsPage() {
   const [monthlyIncome, setMonthlyIncome] = useState("");
   const [showIncomeForm, setShowIncomeForm] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [goalAmount, setGoalAmount] = useState("");
+  const [timeframe, setTimeframe] = useState("");
+  const [savingsPlan, setSavingsPlan] = useState<SavingsPlan | null>(null);
 
   const fetchData = async () => {
     try {
@@ -68,16 +77,37 @@ export default function AnalyticsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ monthlyIncome: parseFloat(monthlyIncome) }),
       });
-      
+
       if (!response.ok) {
         throw new Error("Failed to update income");
       }
-      
+
       setShowIncomeForm(false);
       fetchData();
     } catch (error) {
       console.error("Failed to update income:", error);
       setError("Failed to update income. Please try again.");
+    }
+  };
+
+  const handleGoalSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const response = await fetch("/api/goal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ goalAmount: parseFloat(goalAmount), timeframe: parseInt(timeframe) }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to generate savings plan");
+      }
+
+      const result = await response.json();
+      setSavingsPlan(result);
+    } catch (error) {
+      console.error("Failed to generate savings plan:", error);
+      setError("Failed to generate savings plan. Please try again.");
     }
   };
 
@@ -136,7 +166,76 @@ export default function AnalyticsPage() {
         </Card>
       )}
 
-      {data && (
+      <Card>
+        <CardHeader>
+          <CardTitle>Set Savings Goal</CardTitle>
+          <CardDescription>
+            Define your savings goal and timeframe to get a personalized plan
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleGoalSubmit} className="flex gap-4">
+            <Input
+              type="number"
+              value={goalAmount}
+              onChange={(e) => setGoalAmount(e.target.value)}
+              placeholder="Goal Amount"
+              className="max-w-xs"
+              required
+              min="0"
+              step="0.01"
+            />
+            <Input
+              type="number"
+              value={timeframe}
+              onChange={(e) => setTimeframe(e.target.value)}
+              placeholder="Timeframe (months)"
+              className="max-w-xs"
+              required
+              min="1"
+            />
+            <Button type="submit">Get Plan</Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      {savingsPlan && (
+        <Card className="md:col-span-2">
+          <CardHeader>
+            <CardTitle>Savings Plan</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <h3 className="font-semibold">Plan</h3>
+              <p>{savingsPlan.savingsPlan}</p>
+            </div>
+
+            {savingsPlan.recommendations.length > 0 && (
+              <div className="space-y-2">
+                <h3 className="font-semibold">Recommendations</h3>
+                <ul className="list-disc pl-6 space-y-1">
+                  {savingsPlan.recommendations.map((rec, index) => (
+                    <li key={`rec-${index}`}>{rec}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {savingsPlan.tips.length > 0 && (
+              <div className="space-y-2">
+                <h3 className="font-semibold">Tips</h3>
+                <ul className="list-disc pl-6 space-y-1">
+                  {savingsPlan.tips.map((tip, index) => (
+                    <li key={`tip-${index}`}>{tip}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+    {data && (
         <div className="grid gap-6 md:grid-cols-2">
           {data.expensesByCategory && data.expensesByCategory.length > 0 ? (
             <Card>
