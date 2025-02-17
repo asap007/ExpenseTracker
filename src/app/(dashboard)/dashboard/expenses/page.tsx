@@ -7,6 +7,40 @@ import { AreaChart, Area, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tool
 import { ArrowDown, ArrowUp, DollarSign, Wallet } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 
+// Skeleton for Quick Stats Card
+const QuickStatsSkeleton = () => (
+  <Card>
+    <CardContent className="pt-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="h-4 w-20 bg-gray-300 rounded animate-pulse mb-2"></div>
+          <div className="h-6 w-32 bg-gray-300 rounded animate-pulse"></div>
+        </div>
+        <div className="p-2 bg-gray-200 rounded-full animate-pulse">
+          <div className="h-6 w-6"></div>
+        </div>
+      </div>
+    </CardContent>
+  </Card>
+);
+
+// Skeleton for Chart Cards
+const ChartCardSkeleton = () => (
+    <Card>
+        <CardHeader>
+            <CardTitle>
+                <div className="h-6 w-40 bg-gray-300 rounded animate-pulse"></div>
+            </CardTitle>
+            <CardDescription>
+              <div className="h-4 w-64 bg-gray-300 rounded animate-pulse"></div>
+            </CardDescription>
+        </CardHeader>
+        <CardContent>
+            <div className="h-[400px] bg-gray-300 rounded animate-pulse"></div>
+        </CardContent>
+    </Card>
+);
+
 export default function ExpensePage() {
   const [timeRange, setTimeRange] = useState("month");
   const [loading, setLoading] = useState(true);
@@ -22,14 +56,19 @@ export default function ExpensePage() {
         setLoading(true);
         setError(null);
         const response = await fetch(`/api/analytics?timeRange=${timeRange}&_=${Date.now()}`);
-        const data = await response.json();
-        console.log("API Response:", data);
+        const responseData = await response.json();
+        console.log("API Response:", responseData);
 
         if (!response.ok) {
-          throw new Error(data.error || "Failed to fetch data");
+          throw new Error(responseData.error || "Failed to fetch data");
         }
 
-        setData(data);
+        // Simulate network delay for demonstrating loading animation
+        setTimeout(() => {
+          setData(responseData);
+          setLoading(false);
+        }, 500); // 0.5 second delay
+
       } catch (error) {
         const message = error instanceof Error ? error.message : "Failed to load analytics data";
         setError(message);
@@ -38,21 +77,14 @@ export default function ExpensePage() {
           description: message,
           variant: "destructive",
         });
-      } finally {
-        setLoading(false);
+        setLoading(false) // set to false in all the cases
       }
     };
 
     fetchData();
   }, [timeRange]);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900" />
-      </div>
-    );
-  }
+
 
   if (error) {
     return (
@@ -68,13 +100,6 @@ export default function ExpensePage() {
     );
   }
 
-  if (!data || !data.expensesTrend || !data.expensesByCategory) {
-    return (
-      <div className="text-center py-10">
-        <p>No expense data available for the selected period.</p>
-      </div>
-    );
-  }
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-US", {
@@ -87,6 +112,10 @@ export default function ExpensePage() {
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold">Expense Analytics</h1>
+                {/* Skeleton for Select */}
+                {loading ? (
+                    <div className="w-32 h-10 bg-gray-300 rounded animate-pulse"></div>
+                ) : (
         <Select value={timeRange} onValueChange={setTimeRange}>
           <SelectTrigger className="w-32">
             <SelectValue placeholder="Select range" />
@@ -97,149 +126,178 @@ export default function ExpensePage() {
             <SelectItem value="year">Year</SelectItem>
           </SelectContent>
         </Select>
+        )}
       </div>
 
       {/* Quick Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">This {timeRange}</p>
-                <h3 className="text-2xl font-bold">{formatCurrency(data.currentPeriodTotal)}</h3>
-              </div>
-              <div className="p-2 bg-red-100 rounded-full">
-                <Wallet className="h-6 w-6 text-red-500" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        {loading ? (
+          <>
+            <QuickStatsSkeleton />
+            <QuickStatsSkeleton />
+            <QuickStatsSkeleton />
+          </>
+        ) : (
+          <>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">This {timeRange}</p>
+                    <h3 className="text-2xl font-bold">{formatCurrency(data.currentPeriodTotal)}</h3>
+                  </div>
+                  <div className="p-2 bg-red-100 rounded-full">
+                    <Wallet className="h-6 w-6 text-red-500" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Average/Month</p>
-                <h3 className="text-2xl font-bold">{formatCurrency(data.averagePerMonth)}</h3>
-              </div>
-              <div className="p-2 bg-blue-100 rounded-full">
-                <DollarSign className="h-6 w-6 text-blue-500" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Average/Month</p>
+                    <h3 className="text-2xl font-bold">{formatCurrency(data.averagePerMonth)}</h3>
+                  </div>
+                  <div className="p-2 bg-blue-100 rounded-full">
+                    <DollarSign className="h-6 w-6 text-blue-500" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Projected Next {timeRange}</p>
-                <h3 className="text-2xl font-bold">{formatCurrency(data.projectedExpense)}</h3>
-              </div>
-              <div className="p-2 bg-purple-100 rounded-full">
-                <Wallet className="h-6 w-6 text-purple-500" />
-              </div>
-            </div>
-            {data.projectedExpense > data.currentPeriodTotal && (
-              <div className="flex items-center mt-2 text-sm text-red-500">
-                <ArrowUp className="h-4 w-4 mr-1" />
-                <span>Trending higher than current</span>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Projected Next {timeRange}</p>
+                    <h3 className="text-2xl font-bold">{formatCurrency(data.projectedExpense)}</h3>
+                  </div>
+                  <div className="p-2 bg-purple-100 rounded-full">
+                    <Wallet className="h-6 w-6 text-purple-500" />
+                  </div>
+                </div>
+                {data.projectedExpense > data.currentPeriodTotal && (
+                  <div className="flex items-center mt-2 text-sm text-red-500">
+                    <ArrowUp className="h-4 w-4 mr-1" />
+                    <span>Trending higher than current</span>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </>
+        )}
       </div>
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>Expense Trend</CardTitle>
-            <CardDescription>Your spending pattern over time</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[400px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={data.expensesTrend}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
-                  <XAxis
-                    dataKey="date"
-                    tick={{ fill: "#666", fontSize: 12 }}
-                    tickFormatter={(date) =>
-                      new Date(date).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: timeRange === "week" ? "numeric" : undefined,
-                      })
-                    }
-                  />
-                  <YAxis
-                    tick={{ fill: "#666", fontSize: 12 }}
-                    tickFormatter={(value) => formatCurrency(value).replace("$", "")}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#fff",
-                      border: "1px solid #ddd",
-                      borderRadius: "4px",
-                      boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
-                    }}
-                    formatter={(value: number) => formatCurrency(value)}
-                    labelFormatter={(label) => new Date(label).toLocaleDateString()}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="amount"
-                    stroke="#8884d8"
-                    fill="url(#colorGradient)"
-                    fillOpacity={0.3}
-                  />
-                  <defs>
-                    <linearGradient id="colorGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#8884d8" stopOpacity={0.8} />
-                      <stop offset="95%" stopColor="#8884d8" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
+        {loading ? (
+          <>
+            <ChartCardSkeleton />
+            <ChartCardSkeleton />
+          </>
+        ) : (
+          <>
+           {!data || !data.expensesTrend || !data.expensesByCategory ? (
+              <div className="text-center py-10">
+                <p>No expense data available for the selected period.</p>
+              </div>
+            ) : (
+                <>
+                <Card>
+                <CardHeader>
+                    <CardTitle>Expense Trend</CardTitle>
+                    <CardDescription>Your spending pattern over time</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div className="h-[400px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={data.expensesTrend}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
+                        <XAxis
+                            dataKey="date"
+                            tick={{ fill: "#666", fontSize: 12 }}
+                            tickFormatter={(date) =>
+                            new Date(date).toLocaleDateString("en-US", {
+                                month: "short",
+                                day: timeRange === "week" ? "numeric" : undefined,
+                            })
+                            }
+                        />
+                        <YAxis
+                            tick={{ fill: "#666", fontSize: 12 }}
+                            tickFormatter={(value) => formatCurrency(value).replace("$", "")}
+                        />
+                        <Tooltip
+                            contentStyle={{
+                            backgroundColor: "#fff",
+                            border: "1px solid #ddd",
+                            borderRadius: "4px",
+                            boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
+                            }}
+                            formatter={(value: number) => formatCurrency(value)}
+                            labelFormatter={(label) => new Date(label).toLocaleDateString()}
+                        />
+                        <Area
+                            type="monotone"
+                            dataKey="amount"
+                            stroke="#8884d8"
+                            fill="url(#colorGradient)"
+                            fillOpacity={0.3}
+                        />
+                        <defs>
+                            <linearGradient id="colorGradient" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#8884d8" stopOpacity={0.8} />
+                            <stop offset="95%" stopColor="#8884d8" stopOpacity={0} />
+                            </linearGradient>
+                        </defs>
+                        </AreaChart>
+                    </ResponsiveContainer>
+                    </div>
+                </CardContent>
+                </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Expense by Category</CardTitle>
-            <CardDescription>Distribution of your expenses</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[400px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={data.expensesByCategory}
-                    innerRadius={80}
-                    outerRadius={120}
-                    paddingAngle={5}
-                    dataKey="value"
-                    label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
-                  >
-                    {data.expensesByCategory.map((entry: any, index: number) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#fff",
-                      border: "1px solid #ddd",
-                      borderRadius: "4px",
-                      boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
-                    }}
-                    formatter={(value: number) => formatCurrency(value)}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
+                <Card>
+                <CardHeader>
+                    <CardTitle>Expense by Category</CardTitle>
+                    <CardDescription>Distribution of your expenses</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div className="h-[400px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                        <Pie
+                            data={data.expensesByCategory}
+                            innerRadius={80}
+                            outerRadius={120}
+                            paddingAngle={5}
+                            dataKey="value"
+                            label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                        >
+                            {data.expensesByCategory.map((entry: any, index: number) => (
+                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                            ))}
+                        </Pie>
+                        <Tooltip
+                            contentStyle={{
+                            backgroundColor: "#fff",
+                            border: "1px solid #ddd",
+                            borderRadius: "4px",
+                            boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
+                            }}
+                            formatter={(value: number) => formatCurrency(value)}
+                        />
+                        </PieChart>
+                    </ResponsiveContainer>
+                    </div>
+                </CardContent>
+                </Card>
+                </>
+
+            )}
+          </>
+        )}
       </div>
     </div>
   );

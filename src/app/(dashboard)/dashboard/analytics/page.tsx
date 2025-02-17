@@ -40,6 +40,93 @@ type AnalyticsData = {
     hasIncome: boolean;
 };
 
+// Skeleton for Income Form
+const IncomeFormSkeleton = () => (
+    <Card>
+        <CardHeader>
+            <CardTitle><div className="h-6 w-40 bg-gray-300 rounded animate-pulse"></div></CardTitle>
+            <CardDescription>
+                <div className="h-4 w-64 bg-gray-300 rounded animate-pulse"></div>
+            </CardDescription>
+        </CardHeader>
+        <CardContent>
+            <div className="flex gap-4">
+                <div className="h-10 w-48 bg-gray-300 rounded animate-pulse"></div>
+                <div className="h-10 w-24 bg-gray-300 rounded animate-pulse"></div>
+            </div>
+        </CardContent>
+    </Card>
+);
+
+// Skeleton for Expense Distribution Chart
+const ExpenseDistributionSkeleton = () => (
+    <Card>
+        <CardHeader>
+            <CardTitle><div className="h-6 w-48 bg-gray-300 rounded animate-pulse"></div></CardTitle>
+            <CardDescription><div className="h-4 w-64 bg-gray-300 rounded animate-pulse"></div></CardDescription>
+        </CardHeader>
+        <CardContent className="h-80">
+            <div className="w-full h-full bg-gray-300 rounded animate-pulse"></div>
+        </CardContent>
+    </Card>
+);
+
+// Skeleton for Financial Overview
+const FinancialOverviewSkeleton = () => (
+    <Card>
+        <CardHeader>
+            <CardTitle><div className="h-6 w-40 bg-gray-300 rounded animate-pulse"></div></CardTitle>
+            <CardDescription><div className="h-4 w-64 bg-gray-300 rounded animate-pulse"></div></CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+            <div className="h-6 w-full bg-gray-300 rounded animate-pulse"></div>
+            <div className="h-6 w-full bg-gray-300 rounded animate-pulse"></div>
+        </CardContent>
+    </Card>
+);
+
+// Skeleton for AI Insights Card
+const AIInsightsSkeleton = () => (
+    <Card className="md:col-span-2">
+        <CardHeader>
+          <div className="h-6 w-64 bg-gray-300 rounded animate-pulse"></div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="h-4 w-32 bg-gray-300 rounded animate-pulse mb-2"></div>
+          <div className="h-6 w-full bg-gray-300 rounded animate-pulse"></div>
+
+            <div className="h-4 w-40 bg-gray-300 rounded animate-pulse mb-2 mt-4"></div>
+            <div className="h-24 w-full bg-gray-300 rounded animate-pulse"></div>
+
+            <div className="h-4 w-40 bg-gray-300 rounded animate-pulse mt-4"></div>
+          <div className="grid grid-cols-3 gap-4 mt-2">
+            <div className="h-20 w-full bg-gray-300 rounded animate-pulse"></div>
+            <div className="h-20 w-full bg-gray-300 rounded animate-pulse"></div>
+            <div className="h-20 w-full bg-gray-300 rounded animate-pulse"></div>
+          </div>
+        </CardContent>
+    </Card>
+)
+
+
+// Skeleton for the Set Savings Goal Card.
+const SavingsGoalSkeleton = () => (
+    <Card>
+        <CardHeader>
+          <CardTitle><div className="h-6 w-40 bg-gray-300 rounded animate-pulse"></div></CardTitle>
+           <CardDescription><div className="h-4 w-64 bg-gray-300 rounded animate-pulse"></div></CardDescription>
+        </CardHeader>
+        <CardContent>
+            <div className="flex gap-4">
+                <div className="h-10 w-48 bg-gray-300 rounded animate-pulse"></div>
+                <div className="h-10 w-48 bg-gray-300 rounded animate-pulse"></div>
+                <div className="h-10 w-24 bg-gray-300 rounded animate-pulse"></div>
+            </div>
+        </CardContent>
+    </Card>
+);
+
+
 export default function AnalyticsPage() {
     const [loading, setLoading] = useState(true);
     const [data, setData] = useState<AnalyticsData | null>(null);
@@ -59,13 +146,17 @@ export default function AnalyticsPage() {
                 throw new Error("Failed to fetch analytics data");
             }
             const result = await response.json();
-            setData(result);
-            setShowIncomeForm(!result.hasIncome);
+             // Simulate network delay for demonstrating loading animation
+             setTimeout(() => {
+              setData(result);
+              setShowIncomeForm(!result.hasIncome);
+              setLoading(false);
+            }, 500);
+
         } catch (error) {
             console.error("Failed to fetch analytics:", error);
             setError("Failed to load analytics data. Please try again later.");
-        } finally {
-            setLoading(false);
+            setLoading(false); // Ensure loading is set to false even on error
         }
     };
 
@@ -123,9 +214,6 @@ export default function AnalyticsPage() {
         fetchData();
     }, []);
 
-    if (loading) {
-        return <div className="flex items-center justify-center h-96">Loading...</div>;
-    }
 
     if (error) {
         return (
@@ -141,14 +229,18 @@ export default function AnalyticsPage() {
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <h1 className="text-3xl font-bold">Financial Analytics</h1>
-                {!showIncomeForm && (
+                {/* Skeleton for Update Income Button */}
+                {loading ? (
+                  <div className="h-10 w-32 bg-gray-300 rounded animate-pulse"></div>
+                ):!showIncomeForm && (
                     <Button onClick={() => setShowIncomeForm(true)}>
                         Update Income
                     </Button>
                 )}
             </div>
 
-            {showIncomeForm && (
+            {/* Conditionally render either the skeleton or the actual form */}
+            {loading ? <IncomeFormSkeleton /> : showIncomeForm && (
                 <Card>
                     <CardHeader>
                         <CardTitle>Set Monthly Income</CardTitle>
@@ -174,6 +266,10 @@ export default function AnalyticsPage() {
                 </Card>
             )}
 
+          {/* Conditionally show skeleton or savings goal form */}
+          {loading ? (
+            <SavingsGoalSkeleton />
+          ) : (
             <Card>
                 <CardHeader>
                     <CardTitle>Set Savings Goal</CardTitle>
@@ -208,6 +304,7 @@ export default function AnalyticsPage() {
                     </form>
                 </CardContent>
             </Card>
+          )}
 
             {savingsPlan && (
                 <Card className="md:col-span-2">
@@ -247,70 +344,82 @@ export default function AnalyticsPage() {
 
             {data && (
                 <div className="grid gap-6 md:grid-cols-2">
-                    {data.expensesByCategory && data.expensesByCategory.length > 0 ? (
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Expense Distribution</CardTitle>
-                                <CardDescription>Breakdown by category</CardDescription>
-                            </CardHeader>
-                            <CardContent className="h-80">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <PieChart>
-                                        <Pie
-                                            data={data.expensesByCategory}
-                                            dataKey="value"
-                                            nameKey="name"
-                                            cx="50%"
-                                            cy="50%"
-                                            outerRadius={80}
-                                            label
-                                        >
-                                            {data.expensesByCategory.map((entry, index) => (
-                                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                            ))}
-                                        </Pie>
-                                        <Legend />
-                                    </PieChart>
-                                </ResponsiveContainer>
-                            </CardContent>
-                        </Card>
+                  {/* Expense Distribution Chart and Placeholder */}
+                  {loading ? (
+                    <ExpenseDistributionSkeleton />
+                  ) : data.expensesByCategory && data.expensesByCategory.length > 0 ? (
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Expense Distribution</CardTitle>
+                            <CardDescription>Breakdown by category</CardDescription>
+                        </CardHeader>
+                        <CardContent className="h-80">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                    <Pie
+                                        data={data.expensesByCategory}
+                                        dataKey="value"
+                                        nameKey="name"
+                                        cx="50%"
+                                        cy="50%"
+                                        outerRadius={80}
+                                        label
+                                    >
+                                        {data.expensesByCategory.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                        ))}
+                                    </Pie>
+                                    <Legend />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        </CardContent>
+                    </Card>
+                  ) : (
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>No Expenses</CardTitle>
+                            <CardDescription>Start adding expenses to see your distribution</CardDescription>
+                        </CardHeader>
+                    </Card>
+                  )}
+
+                    {/* Financial Overview Skeleton or Content */}
+                    {loading ? (
+                      <FinancialOverviewSkeleton/>
                     ) : (
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>No Expenses</CardTitle>
-                                <CardDescription>Start adding expenses to see your distribution</CardDescription>
-                            </CardHeader>
-                        </Card>
+                    <Card>
+                      <CardHeader>
+                          <CardTitle>Financial Overview</CardTitle>
+                          <CardDescription>Monthly summary</CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                          <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                  <DollarSign className="h-5 w-5 text-green-500" />
+                                  <span>Monthly Income:</span>
+                              </div>
+                              <span className="font-bold">
+                                  ${(data.currentIncome || 0).toFixed(2)}
+                              </span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                  <TrendingUp className="h-5 w-5 text-red-500" />
+                                  <span>Total Expenses:</span>
+                              </div>
+                              <span className="font-bold">
+                                  ${(data.totalExpenses || 0).toFixed(2)}
+                              </span>
+                          </div>
+                      </CardContent>
+                    </Card>
                     )}
 
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Financial Overview</CardTitle>
-                        <CardDescription>Monthly summary</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                <DollarSign className="h-5 w-5 text-green-500" />
-                                <span>Monthly Income:</span>
-                            </div>
-                            <span className="font-bold">
-                                ${(data.currentIncome || 0).toFixed(2)}
-                            </span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                <TrendingUp className="h-5 w-5 text-red-500" />
-                                <span>Total Expenses:</span>
-                            </div>
-                            <span className="font-bold">
-                                ${(data.totalExpenses || 0).toFixed(2)}
-                            </span>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                    {data.aiInsights && (
+                  {/* AI Insights Skeleton or Content */}
+                  {loading ? (
+                    <AIInsightsSkeleton />
+                  ) : (
+                    data.aiInsights && (
                         <Card className="md:col-span-2">
                             <CardHeader>
                                 <div className="flex items-center gap-2">
@@ -382,7 +491,8 @@ export default function AnalyticsPage() {
                                 )}
                             </CardContent>
                         </Card>
-                    )}
+                    )
+                  )}
                 </div>
             )}
         </div>

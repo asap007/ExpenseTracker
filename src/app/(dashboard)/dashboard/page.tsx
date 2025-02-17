@@ -48,6 +48,36 @@ type Expense = {
   receiptUrl?: string | null;
 };
 
+// Skeleton Component for Loading Animation
+const SkeletonCard = () => (
+  <Card>
+    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+      <div className="h-4 w-20 bg-gray-300 rounded animate-pulse"></div>
+      <div className="h-4 w-12 bg-gray-300 rounded animate-pulse"></div>
+    </CardHeader>
+    <CardContent>
+      <div className="h-6 w-full bg-gray-300 rounded animate-pulse"></div>
+    </CardContent>
+  </Card>
+);
+
+const ExpenseRowSkeleton = () => (
+    <TableRow>
+        <TableCell><div className="h-4 w-20 bg-gray-300 rounded animate-pulse"></div></TableCell>
+        <TableCell><div className="h-4 w-32 bg-gray-300 rounded animate-pulse"></div></TableCell>
+        <TableCell><div className="h-4 w-24 bg-gray-300 rounded animate-pulse"></div></TableCell>
+        <TableCell className="text-right"><div className="h-4 w-16 bg-gray-300 rounded animate-pulse"></div></TableCell>
+        <TableCell>
+             <div className="flex items-center space-x-2">
+                <div className="h-8 w-8 bg-gray-300 rounded-full animate-pulse"></div>
+                <div className="h-8 w-8 bg-gray-300 rounded-full animate-pulse"></div>
+                <div className="h-8 w-8 bg-gray-300 rounded-full animate-pulse"></div>
+            </div>
+        </TableCell>
+    </TableRow>
+)
+
+
 export default function DashboardPage() {
   const { data: session } = useSession();
   const { toast } = useToast();
@@ -72,7 +102,11 @@ export default function DashboardPage() {
       const response = await fetch('/api/expenses');
       if (!response.ok) throw new Error('Failed to fetch expenses');
       const data = await response.json();
-      setExpenses(data); // <--- Set expenses directly, they *include* category
+      // Simulate network delay for demonstrating loading animation
+      setTimeout(() => {
+        setExpenses(data);
+        setIsLoading(false);
+      }, 500);  // 0.5 second delay
 
     } catch (error) {
       console.error('Error fetching expenses:', error);
@@ -81,8 +115,7 @@ export default function DashboardPage() {
         description: 'Failed to load expenses. Please try again.',
         variant: 'destructive',
       });
-    } finally {
-      setIsLoading(false);
+      setIsLoading(false); //  set loading to false even on error
     }
   };
 
@@ -237,15 +270,22 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Expenses</CardTitle>
-            <Badge className="bg-blue-500">This Month</Badge>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">${totalExpenses.toFixed(2)}</div>
-          </CardContent>
-        </Card>
+        {isLoading ? (
+          // Show skeleton cards while loading
+          <>
+            <SkeletonCard />
+          </>
+        ) : (
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Expenses</CardTitle>
+              <Badge className="bg-blue-500">This Month</Badge>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">${totalExpenses.toFixed(2)}</div>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       <Card>
@@ -254,7 +294,21 @@ export default function DashboardPage() {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <p>Loading expenses...</p>
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Description</TableHead>
+                        <TableHead>Category</TableHead>
+                        <TableHead className="text-right">Amount</TableHead>
+                        <TableHead>Actions</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {[...Array(5)].map((_, i) => ( <ExpenseRowSkeleton key={i} />))}
+                </TableBody>
+            </Table>
+
           ) : expenses.length === 0 ? (
             <p>No expenses found. Add your first expense to get started!</p>
           ) : (
