@@ -55,14 +55,28 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
     
-    const body = await req.json();
-    const { amount, description, date, categoryId, receiptUrl } = body;
+    // Handle FormData instead of JSON
+    const formData = await req.formData();
+    
+    const amount = formData.get('amount')?.toString();
+    const description = formData.get('description')?.toString();
+    const date = formData.get('date')?.toString();
+    const categoryId = formData.get('categoryId')?.toString();
+    const receiptFile = formData.get('receipt') as File | null;
     
     if (!amount || !description || !date || !categoryId) {
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }
       );
+    }
+    
+    // Handle file upload if provided
+    let receiptUrl = null;
+    if (receiptFile && receiptFile.size > 0) {
+      // Here you would normally upload the file to a storage service
+      // This is a placeholder - you'll need to implement actual file upload logic
+      receiptUrl = `/uploads/${Date.now()}-${receiptFile.name}`;
     }
     
     const expense = await prisma.expense.create({
@@ -72,7 +86,7 @@ export async function POST(req: NextRequest) {
         date: new Date(date),
         categoryId,
         userId: user.id,
-        receiptUrl: receiptUrl || null,
+        receiptUrl,
       },
       include: { category: true },
     });
