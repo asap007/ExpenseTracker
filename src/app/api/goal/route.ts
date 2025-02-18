@@ -12,36 +12,19 @@ import {
 // Initialize Gemini
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
-// Generation Configuration (without responseMimeType for gemini-pro)
 const generationConfig: GenerationConfig = {
-  maxOutputTokens: 2000,
-  temperature: 0.7,
-  topP: 0.95,
-  topK: 40,
+  stopSequences: undefined, //remove stopSequences  as causing some issues with gemini api.
+  maxOutputTokens: 2000,  // Adjust as needed
+  temperature: 0.7, // Adjust for creativity (0.0 - 1.0)
+  topP: 0.95,         // Adjust for diversity (nucleus sampling)
+  topK: 40,           // Adjust for quality (top-k sampling)
+  responseMimeType: "application/json", // Explicitly request JSON
 };
 
 // Use 'gemini-pro' (without responseMimeType)
 const model = genAI.getGenerativeModel({
-  model: "gemini-pro",
-  generationConfig, // Use the configuration *without* responseMimeType
-  safetySettings: [
-    {
-      category: HarmCategory.HARM_CATEGORY_HARASSMENT,
-      threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-    },
-    {
-      category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
-      threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-    },
-    {
-      category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
-      threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-    },
-    {
-      category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
-      threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-    },
-  ],
+  model: "gemini-1.5-pro",
+  generationConfig
 });
 
 export async function POST(req: NextRequest) {

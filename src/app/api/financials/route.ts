@@ -2,20 +2,27 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI, GenerationConfig } from "@google/generative-ai";
 
 // Initialize Gemini
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 const generationConfig: GenerationConfig = {
-  stopSequences: undefined, //remove stopSequences  as causing some issues with gemini api.
-  maxOutputTokens: 2000,  // Adjust as needed
-  temperature: 0.7, // Adjust for creativity (0.0 - 1.0)
-  topP: 0.95,         // Adjust for diversity (nucleus sampling)
-  topK: 40,           // Adjust for quality (top-k sampling)
-  responseMimeType: "application/json", // Explicitly request JSON
+    stopSequences: undefined,
+    maxOutputTokens: 2000,
+    temperature: 0.7,
+    topP: 0.95,
+    topK: 40,
+    responseMimeType: "application/json",
 };
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro",
-generationConfig });
+const model = genAI.getGenerativeModel({
+    model: "gemini-1.5-pro",
+    generationConfig,
+});
+
+// In-memory cache
+const cache = new Map<string, { data: any; timestamp: number }>();
+const CACHE_EXPIRATION_MS = 60 * 60 * 1000; // 1 hour cache
+let currentRequest: Promise<any> | null = null;  // Track the current request
 
 export async function GET(req: NextRequest) {
     try {
@@ -33,11 +40,26 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({ error: "User not found" }, { status: 404 });
         }
 
-        // Get user's income
+        const userId = user.id;
+        const cacheKey = `analytics-${userId}`;
+
+        // Check cache
+        const cachedData = cache.get(cacheKey);
+        if (cachedData && Date.now() - cachedData.timestamp < CACHE_EXPIRATION_MS) {
+            return NextResponse.json(cachedData.data);
+        }
+        // If there's a current request, return it.  Avoids duplicate requests.
+        if (currentRequest) {
+            return currentRequest.then(data => NextResponse.json(data));
+        }
+
+
+        // Get user's income (cached if possible)
         const income = await prisma.income.findFirst({
             where: { userId: user.id },
             orderBy: { createdAt: "desc" },
         });
+
 
         // Get expenses for the last 30 days
         const thirtyDaysAgo = new Date();
@@ -84,7 +106,7 @@ export async function GET(req: NextRequest) {
       2. Three specific recommendations for saving money
       3. Identify any concerning spending categories
       4. A suggested monthly budget breakdown based on the 50/30/20 rule
-      
+
       Format the response as JSON with the following structure:
       {
         "analysis": "brief analysis text",
@@ -98,27 +120,38 @@ export async function GET(req: NextRequest) {
       }
     `;
 
-        const result = await model.generateContent(prompt);
-        const responseText = result.response.text();
+        // Make the Gemini API call (only if not already in progress)
+        currentRequest = model.generateContent(prompt)
+            .then(result => {
+                const responseText = result.response.text();
+                const cleanedResponse = responseText.replace(/```json|```/g, '').trim();
+                const aiResponse = JSON.parse(cleanedResponse);
 
-        // Remove any markdown code block syntax from the response
-        const cleanedResponse = responseText.replace(/```json|```/g, '').trim();
+                const data = {
+                    currentIncome: monthlyIncome,
+                    totalExpenses,
+                    expensesByCategory: Object.entries(expensesByCategory).map(([name, value]) => ({
+                        name,
+                        value,
+                    })),
+                    aiInsights: aiResponse,
+                    hasIncome: !!income,
+                };
 
-        // Parse the cleaned response as JSON
-        const aiResponse = JSON.parse(cleanedResponse);
+                // Store in cache
+                cache.set(cacheKey, { data, timestamp: Date.now() });
+                return data;
+            })
+            .finally(() => {
+                currentRequest = null; // Reset currentRequest after it completes
+            });
 
-        return NextResponse.json({
-            currentIncome: monthlyIncome,
-            totalExpenses,
-            expensesByCategory: Object.entries(expensesByCategory).map(([name, value]) => ({
-                name,
-                value,
-            })),
-            aiInsights: aiResponse,
-            hasIncome: !!income,
-        });
+        return currentRequest.then(data => NextResponse.json(data));
+
     } catch (error) {
         console.error("Failed to fetch analytics:", error);
+        // Clear the current request if it fails.
+        currentRequest = null;
         return NextResponse.json(
             { error: "Failed to fetch analytics" },
             { status: 500 }
@@ -159,6 +192,11 @@ export async function POST(req: NextRequest) {
                 userId: user.id,
             },
         });
+
+        // Invalidate cache for this user
+        const cacheKey = `analytics-${user.id}`;
+        cache.delete(cacheKey);
+
 
         return NextResponse.json({ success: true });
     } catch (error) {
