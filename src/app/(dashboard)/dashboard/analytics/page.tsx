@@ -141,44 +141,87 @@ export default function AnalyticsPage() {
     const fetchData = async () => {
         try {
             setLoading(true);
-            const response = await fetch("/api/financials");
-            if (!response.ok) {
-                throw new Error("Failed to fetch analytics data");
+            
+            // First attempt
+            try {
+                const response = await fetch("/api/financials");
+                if (!response.ok) {
+                    throw new Error("Initial fetch failed");
+                }
+                const result = await response.json();
+                setData(result);
+                setShowIncomeForm(!result.hasIncome);
+                setLoading(false);
+            } catch (initialError) {
+                console.warn("Initial fetch failed, retrying...", initialError);
+                
+                // Wait a moment and retry
+                setTimeout(async () => {
+                    try {
+                        const retryResponse = await fetch("/api/financials");
+                        if (!retryResponse.ok) {
+                            throw new Error("Retry fetch failed");
+                        }
+                        const retryResult = await retryResponse.json();
+                        setData(retryResult);
+                        setShowIncomeForm(!retryResult.hasIncome);
+                    } catch (retryError) {
+                        console.error("All fetch attempts failed:", retryError);
+                        setError("Failed to load analytics data. Please try again later.");
+                    } finally {
+                        setLoading(false);
+                    }
+                }, 1500); // 1.5 second delay before retry
             }
-            const result = await response.json();
-             // Simulate network delay for demonstrating loading animation
-             setTimeout(() => {
-              setData(result);
-              setShowIncomeForm(!result.hasIncome);
-              setLoading(false);
-            }, 500);
-
         } catch (error) {
             console.error("Failed to fetch analytics:", error);
             setError("Failed to load analytics data. Please try again later.");
-            setLoading(false); // Ensure loading is set to false even on error
+            setLoading(false);
         }
     };
 
     const handleIncomeSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        const incomeValue = parseFloat(monthlyIncome);
+        
+        // Optimistically update UI
+        if (data) {
+            const optimisticData = {
+                ...data,
+                currentIncome: incomeValue,
+                hasIncome: true
+            };
+            setData(optimisticData);
+        }
+        
+        setShowIncomeForm(false);
+        
         try {
             const response = await fetch("/api/financials", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ monthlyIncome: parseFloat(monthlyIncome) }),
+                body: JSON.stringify({ monthlyIncome: incomeValue }),
             });
-
+    
             if (!response.ok) {
                 const errorData = await response.json();
                 throw new Error(errorData.error || "Failed to update income");
             }
-
-            setShowIncomeForm(false);
-            fetchData();  // Re-fetch data to update the UI
+            
+            // If the response includes fresh analytics data, use it
+            const result = await response.json();
+            if (result.analytics) {
+                setData(result.analytics);
+            } else {
+                // Otherwise fetch fresh data
+                fetchData();
+            }
         } catch (error: any) {
             console.error("Failed to update income:", error);
             setError(error.message || "Failed to update income. Please try again.");
+            
+            // Revert optimistic update if there was an error
+            fetchData();
         }
     };
 

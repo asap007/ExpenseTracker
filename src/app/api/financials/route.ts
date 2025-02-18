@@ -19,80 +19,56 @@ const model = genAI.getGenerativeModel({
     generationConfig,
 });
 
-// In-memory cache
+// In-memory cache for analytics data
 const cache = new Map<string, { data: any; timestamp: number }>();
 const CACHE_EXPIRATION_MS = 60 * 60 * 1000; // 1 hour cache
-let currentRequest: Promise<any> | null = null;  // Track the current request
 
-export async function GET(req: NextRequest) {
-    try {
-        const session = await getServerSession(authOptions);
+// Track in-progress requests by user to prevent duplicates
+const requestsInProgress = new Map<string, Promise<any>>();
 
-        if (!session?.user?.email) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-        }
+/**
+ * Generate analytics data for a user
+ * This function handles all the data gathering, AI analysis, and caching logic
+ */
+async function generateAnalyticsData(user: any) {
+    // Get user's income
+    const income = await prisma.income.findFirst({
+        where: { userId: user.id },
+        orderBy: { createdAt: "desc" },
+    });
 
-        const user = await prisma.user.findUnique({
-            where: { email: session.user.email },
-        });
+    // Get expenses for the last 30 days
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-        if (!user) {
-            return NextResponse.json({ error: "User not found" }, { status: 404 });
-        }
-
-        const userId = user.id;
-        const cacheKey = `analytics-${userId}`;
-
-        // Check cache
-        const cachedData = cache.get(cacheKey);
-        if (cachedData && Date.now() - cachedData.timestamp < CACHE_EXPIRATION_MS) {
-            return NextResponse.json(cachedData.data);
-        }
-        // If there's a current request, return it.  Avoids duplicate requests.
-        if (currentRequest) {
-            return currentRequest.then(data => NextResponse.json(data));
-        }
-
-
-        // Get user's income (cached if possible)
-        const income = await prisma.income.findFirst({
-            where: { userId: user.id },
-            orderBy: { createdAt: "desc" },
-        });
-
-
-        // Get expenses for the last 30 days
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-        const expenses = await prisma.expense.findMany({
-            where: {
-                userId: user.id,
-                date: {
-                    gte: thirtyDaysAgo,
-                },
+    const expenses = await prisma.expense.findMany({
+        where: {
+            userId: user.id,
+            date: {
+                gte: thirtyDaysAgo,
             },
-            include: {
-                category: true,
-            },
-            orderBy: {
-                date: "desc",
-            },
-        });
+        },
+        include: {
+            category: true,
+        },
+        orderBy: {
+            date: "desc",
+        },
+    });
 
-        // Calculate totals and prepare data for AI analysis
-        const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
-        const monthlyIncome = income?.amount || 0;
+    // Calculate totals and prepare data for AI analysis
+    const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
+    const monthlyIncome = income?.amount || 0;
 
-        const expensesByCategory = expenses.reduce((acc, expense) => {
-            const category = expense.category.name;
-            if (!acc[category]) acc[category] = 0;
-            acc[category] += expense.amount;
-            return acc;
-        }, {} as Record<string, number>);
+    const expensesByCategory = expenses.reduce((acc, expense) => {
+        const category = expense.category.name;
+        if (!acc[category]) acc[category] = 0;
+        acc[category] += expense.amount;
+        return acc;
+    }, {} as Record<string, number>);
 
-        // Prepare prompt for Gemini
-        const prompt = `
+    // Prepare prompt for Gemini
+    const prompt = `
       As a financial advisor, analyze this spending data:
       Monthly Income: $${monthlyIncome}
       Total Monthly Expenses: $${totalExpenses}
@@ -120,38 +96,108 @@ export async function GET(req: NextRequest) {
       }
     `;
 
-        // Make the Gemini API call (only if not already in progress)
-        currentRequest = model.generateContent(prompt)
-            .then(result => {
-                const responseText = result.response.text();
-                const cleanedResponse = responseText.replace(/```json|```/g, '').trim();
-                const aiResponse = JSON.parse(cleanedResponse);
+    // Make the Gemini API call with fallback
+    let aiInsights = null;
+    try {
+        const result = await model.generateContent(prompt);
+        const responseText = result.response.text();
+        const cleanedResponse = responseText.replace(/```json|```/g, '').trim();
+        aiInsights = JSON.parse(cleanedResponse);
+    } catch (aiError) {
+        console.warn("AI analysis failed, continuing with basic data:", aiError);
+        // Provide basic insights when AI fails
+        aiInsights = {
+            analysis: "Basic analysis based on your spending data. For more detailed insights, please try again later.",
+            recommendations: [
+                "Review your highest spending categories",
+                "Consider setting a monthly budget",
+                "Build an emergency fund if you haven't already"
+            ],
+            concerns: totalExpenses > monthlyIncome ? ["Your expenses exceed your income"] : [],
+            suggestedBudget: {
+                needs: Math.max(0, monthlyIncome * 0.5),
+                wants: Math.max(0, monthlyIncome * 0.3),
+                savings: Math.max(0, monthlyIncome * 0.2)
+            }
+        };
+    }
 
-                const data = {
-                    currentIncome: monthlyIncome,
-                    totalExpenses,
-                    expensesByCategory: Object.entries(expensesByCategory).map(([name, value]) => ({
-                        name,
-                        value,
-                    })),
-                    aiInsights: aiResponse,
-                    hasIncome: !!income,
-                };
+    const data = {
+        currentIncome: monthlyIncome,
+        totalExpenses,
+        expensesByCategory: Object.entries(expensesByCategory).map(([name, value]) => ({
+            name,
+            value,
+        })),
+        aiInsights,
+        hasIncome: !!income,
+    };
 
-                // Store in cache
-                cache.set(cacheKey, { data, timestamp: Date.now() });
-                return data;
-            })
+    // Store in cache
+    cache.set(`analytics-${user.id}`, { data, timestamp: Date.now() });
+    return data;
+}
+
+/**
+ * GET handler for fetching analytics data
+ */
+export async function GET(req: NextRequest) {
+    try {
+        const session = await getServerSession(authOptions);
+
+        if (!session?.user?.email) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
+        const user = await prisma.user.findUnique({
+            where: { email: session.user.email },
+        });
+
+        if (!user) {
+            return NextResponse.json({ error: "User not found" }, { status: 404 });
+        }
+
+        const userId = user.id;
+        const cacheKey = `analytics-${userId}`;
+        const requestKey = `request-${userId}`;
+
+        // Check cache first
+        const cachedData = cache.get(cacheKey);
+        if (cachedData && Date.now() - cachedData.timestamp < CACHE_EXPIRATION_MS) {
+            return NextResponse.json(cachedData.data);
+        }
+
+        // Check if there's an in-progress request for this user
+        if (requestsInProgress.has(requestKey)) {
+            try {
+                const data = await requestsInProgress.get(requestKey);
+                return NextResponse.json(data);
+            } catch (error) {
+                // If the in-progress request fails, we'll continue and try a new one
+                requestsInProgress.delete(requestKey);
+            }
+        }
+
+        // Create and track the new request
+        const newRequest = generateAnalyticsData(user)
             .finally(() => {
-                currentRequest = null; // Reset currentRequest after it completes
+                requestsInProgress.delete(requestKey);
             });
 
-        return currentRequest.then(data => NextResponse.json(data));
+        requestsInProgress.set(requestKey, newRequest);
 
+        try {
+            const data = await newRequest;
+            return NextResponse.json(data);
+        } catch (error) {
+            console.error("Failed to fetch analytics:", error);
+            return NextResponse.json(
+                { error: "Failed to fetch analytics. Please try again." },
+                { status: 500 }
+            );
+        }
     } catch (error) {
         console.error("Failed to fetch analytics:", error);
-        // Clear the current request if it fails.
-        currentRequest = null;
         return NextResponse.json(
             { error: "Failed to fetch analytics" },
             { status: 500 }
@@ -159,6 +205,9 @@ export async function GET(req: NextRequest) {
     }
 }
 
+/**
+ * POST handler for updating user income
+ */
 export async function POST(req: NextRequest) {
     try {
         const session = await getServerSession(authOptions);
@@ -197,8 +246,18 @@ export async function POST(req: NextRequest) {
         const cacheKey = `analytics-${user.id}`;
         cache.delete(cacheKey);
 
-
-        return NextResponse.json({ success: true });
+        // Generate fresh data immediately to prevent errors on next GET
+        try {
+            const freshData = await generateAnalyticsData(user);
+            return NextResponse.json({ 
+                success: true,
+                analytics: freshData // Return the fresh data for immediate UI update
+            });
+        } catch (refreshError) {
+            console.warn("Failed to refresh analytics after income update:", refreshError);
+            // Still return success since the income was updated
+            return NextResponse.json({ success: true });
+        }
     } catch (error) {
         console.error("Failed to update income:", error);
         return NextResponse.json(
