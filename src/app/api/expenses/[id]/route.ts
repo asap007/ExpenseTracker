@@ -3,15 +3,24 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { PrismaClient } from "@prisma/client";
+import { v2 as cloudinary } from 'cloudinary'; // Import Cloudinary
 
 const prisma = new PrismaClient();
 
-// GET a specific expense
+// Cloudinary configuration (same as in app/api/expenses/route.ts)
+cloudinary.config({
+  cloud_name: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+// GET a specific expense (existing code - unchanged)
 export async function GET(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
+    req: NextRequest,
+    { params }: { params: { id: string } }
+  ) {
+      //your code
+      try {
     const session = await getServerSession(authOptions);
     
     if (!session || !session.user?.email) {
@@ -49,47 +58,65 @@ export async function GET(
   }
 }
 
-// PATCH update an expense
+// PATCH update an expense (modified for Cloudinary)
 export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session || !session.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    
+
     const user = await prisma.user.findUnique({
       where: { email: session.user.email },
     });
-    
+
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
-    
+
     const expense = await prisma.expense.findUnique({
       where: { id: params.id },
     });
-    
+
     if (!expense) {
       return NextResponse.json({ error: "Expense not found" }, { status: 404 });
     }
-    
+
     if (expense.userId !== user.id && user.role !== "ADMIN") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
-    
-    // Handle FormData instead of JSON
+
     const formData = await req.formData();
+    const amount = formData.get("amount")?.toString();
+    const description = formData.get("description")?.toString();
+    const date = formData.get("date")?.toString();
+    const categoryId = formData.get("categoryId")?.toString();
+    const receiptFile = formData.get("receipt") as File | null;
     
-    const amount = formData.get('amount')?.toString();
-    const description = formData.get('description')?.toString();
-    const date = formData.get('date')?.toString();
-    const categoryId = formData.get('categoryId')?.toString();
-    const receiptUrl = formData.get('receiptUrl')?.toString();
-    
+    let receiptUrl = expense.receiptUrl; // Keep existing URL by default
+
+      
+    if (receiptFile) {
+        // Convert the file to a buffer
+        const buffer = Buffer.from(await receiptFile.arrayBuffer());
+        
+        // Use a Promise to handle the Cloudinary upload
+        receiptUrl = await new Promise((resolve, reject) => {
+            cloudinary.uploader.upload_stream({ resource_type: 'auto' }, (error, result) => {
+                if (error) {
+                    console.error("Cloudinary upload error:", error);
+                    reject(error); // Reject the promise on error
+                    return;
+                }
+                resolve(result?.secure_url);
+            }).end(buffer);
+        });
+    }
+
     const updatedExpense = await prisma.expense.update({
       where: { id: params.id },
       data: {
@@ -97,19 +124,18 @@ export async function PATCH(
         ...(description && { description }),
         ...(date && { date: new Date(date) }),
         ...(categoryId && { categoryId }),
-        ...(receiptUrl !== undefined && { receiptUrl }),
+        receiptUrl, // Update with the new URL, or keep the old one
       },
       include: { category: true },
     });
-    
-    // Log the action
+
     await prisma.log.create({
       data: {
         action: `Updated expense: ${updatedExpense.description} - $${updatedExpense.amount}`,
         userId: user.id,
       },
     });
-    
+
     return NextResponse.json(updatedExpense);
   } catch (error) {
     console.error("Failed to update expense:", error);
@@ -120,12 +146,13 @@ export async function PATCH(
   }
 }
 
-// DELETE an expense
+// DELETE an expense (existing code - unchanged)
 export async function DELETE(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  try {
+//your code
+try {
     const session = await getServerSession(authOptions);
     
     if (!session || !session.user?.email) {
@@ -173,5 +200,3 @@ export async function DELETE(
     );
   }
 }
-
-export const PUT = PATCH;
