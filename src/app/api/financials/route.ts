@@ -27,7 +27,7 @@ const CACHE_EXPIRATION_MS = 60 * 60 * 1000; // 1 hour cache
 const requestsInProgress = new Map<string, Promise<any>>();
 
 /**
- * Retry with exponential backoff helper function
+ * Retry with exponential backoff helper function with improved error classification
  * @param operation Function to retry
  * @param maxRetries Maximum number of retry attempts
  * @param baseDelay Initial delay in milliseconds
@@ -46,8 +46,22 @@ async function retryWithExponentialBackoff<T>(
     for (let attempt = 0; attempt < maxRetries; attempt++) {
         try {
             return await operation();
-        } catch (error) {
+        } catch (error: any) {
             lastError = error;
+            
+            // Check if this error should not be retried (e.g., invalid input, auth errors)
+            const statusCode = error.statusCode || (error.response && error.response.status);
+            const errorMessage = error.message || String(error);
+            
+            // Don't retry client errors (4xx) except for 429 (too many requests) and 408 (timeout)
+            if (statusCode && 
+                statusCode >= 400 && 
+                statusCode < 500 && 
+                statusCode !== 429 && 
+                statusCode !== 408) {
+                console.error(`Non-retryable error (${statusCode}):`, errorMessage);
+                throw error;
+            }
             
             if (attempt < maxRetries - 1) {
                 // Calculate delay with exponential backoff
@@ -59,10 +73,12 @@ async function retryWithExponentialBackoff<T>(
                     delay += Math.random() * jitterAmount - jitterAmount / 2;
                 }
                 
-                console.warn(`Retry attempt ${attempt + 1} failed, retrying in ${Math.round(delay)}ms:`, error);
+                console.warn(`Retry attempt ${attempt + 1}/${maxRetries} failed, retrying in ${Math.round(delay)}ms:`, errorMessage);
                 
                 // Wait for the calculated delay
                 await new Promise(resolve => setTimeout(resolve, delay));
+            } else {
+                console.error(`All ${maxRetries} retry attempts failed:`, errorMessage);
             }
         }
     }
@@ -72,8 +88,7 @@ async function retryWithExponentialBackoff<T>(
 }
 
 /**
- * Generate analytics data for a user
- * This function handles all the data gathering, AI analysis, and caching logic
+ * Generate analytics data for a user with improved error handling
  */
 async function generateAnalyticsData(user: any) {
     // Get user's income
@@ -141,20 +156,48 @@ async function generateAnalyticsData(user: any) {
       }
     `;
 
-    // Make the Gemini API call with retry and fallback
+    // Make the Gemini API call with improved retry and fallback
     let aiInsights = null;
     try {
         const generateAIContent = async () => {
-            const result = await model.generateContent(prompt);
-            const responseText = result.response.text();
-            const cleanedResponse = responseText.replace(/```json|```/g, '').trim();
-            return JSON.parse(cleanedResponse);
+            try {
+                const result = await model.generateContent(prompt);
+                const responseText = result.response.text();
+                
+                // Handle empty responses
+                if (!responseText || responseText.trim() === '') {
+                    throw new Error("Empty response from Gemini API");
+                }
+                
+                const cleanedResponse = responseText.replace(/```json|```/g, '').trim();
+                
+                try {
+                    // Try to parse the JSON
+                    return JSON.parse(cleanedResponse);
+                } catch (parseError) {
+                    console.warn("Failed to parse Gemini response as JSON:", cleanedResponse);
+                    throw new Error(`Invalid JSON response: ${parseError.message}`);
+                }
+            } catch (apiError: any) {
+                // Enhanced error classification
+                if (apiError.message?.includes('rate limit') || 
+                    apiError.message?.includes('quota exceeded') || 
+                    apiError.message?.includes('429')) {
+                    console.warn("Rate limiting detected:", apiError.message);
+                    apiError.statusCode = 429; // Mark as retryable
+                } else if (apiError.message?.includes('timeout') || 
+                          apiError.message?.includes('deadline exceeded')) {
+                    console.warn("Timeout detected:", apiError.message);
+                    apiError.statusCode = 408; // Mark as retryable
+                }
+                throw apiError;
+            }
         };
 
-        // Attempt with exponential backoff (3 attempts, starting with 1s delay, doubling each time)
-        aiInsights = await retryWithExponentialBackoff(generateAIContent, 3, 1000, 2, true);
+        // Attempt with exponential backoff (5 attempts, starting with 1s delay, doubling each time)
+        aiInsights = await retryWithExponentialBackoff(generateAIContent, 5, 1000, 2, true);
     } catch (aiError) {
-        console.warn("AI analysis failed after retries, continuing with basic data:", aiError);
+        console.error("AI analysis failed after all retries, using fallback:", aiError);
         // Provide basic insights when AI fails
         aiInsights = {
             analysis: "Basic analysis based on your spending data. For more detailed insights, please try again later.",
@@ -189,7 +232,7 @@ async function generateAnalyticsData(user: any) {
 }
 
 /**
- * GET handler for fetching analytics data
+ * GET handler for fetching analytics data with improved error handling
  */
 export async function GET(req: NextRequest) {
     try {
@@ -224,30 +267,45 @@ export async function GET(req: NextRequest) {
                 return NextResponse.json(data);
             } catch (error) {
                 // If the in-progress request fails, we'll continue and try a new one
+                console.warn("In-progress request failed, starting fresh request:", error);
                 requestsInProgress.delete(requestKey);
             }
         }
 
-        // Create and track the new request
-        const newRequest = generateAnalyticsData(user)
-            .finally(() => {
-                requestsInProgress.delete(requestKey);
-            });
+        // Create and track the new request with timeout
+        const newRequest = Promise.race([
+            generateAnalyticsData(user),
+            new Promise<never>((_, reject) => {
+                setTimeout(() => reject(new Error("Analytics request timeout after 60s")), 60000)
+            })
+        ]).finally(() => {
+            requestsInProgress.delete(requestKey);
+        });
 
         requestsInProgress.set(requestKey, newRequest);
 
         try {
             const data = await newRequest;
             return NextResponse.json(data);
-        } catch (error) {
-            console.error("Failed to fetch analytics:", error);
+        } catch (error: any) {
+            console.error("Failed to fetch analytics:", error.message || error);
+            
+            // Check if there's any cached data as fallback, even if expired
+            if (cachedData) {
+                console.warn("Using expired cache data as fallback after fetch failure");
+                return NextResponse.json({
+                    ...cachedData.data,
+                    _warning: "Using cached data due to processing error. Try refreshing later."
+                });
+            }
+            
             return NextResponse.json(
                 { error: "Failed to fetch analytics. Please try again." },
                 { status: 500 }
             );
         }
-    } catch (error) {
-        console.error("Failed to fetch analytics:", error);
+    } catch (error: any) {
+        console.error("Unexpected error in analytics API:", error.message || error);
         return NextResponse.json(
             { error: "Failed to fetch analytics" },
             { status: 500 }
@@ -296,20 +354,30 @@ export async function POST(req: NextRequest) {
         const cacheKey = `analytics-${user.id}`;
         cache.delete(cacheKey);
 
-        // Generate fresh data immediately to prevent errors on next GET
+        // Generate fresh data immediately with shorter timeout
         try {
-            const freshData = await generateAnalyticsData(user);
+            const freshDataPromise = Promise.race([
+                generateAnalyticsData(user),
+                new Promise<never>((_, reject) => {
+                    setTimeout(() => reject(new Error("Analytics refresh timeout after 15s")), 15000)
+                })
+            ]);
+            
+            const freshData = await freshDataPromise;
             return NextResponse.json({ 
                 success: true,
                 analytics: freshData // Return the fresh data for immediate UI update
             });
-        } catch (refreshError) {
-            console.warn("Failed to refresh analytics after income update:", refreshError);
+        } catch (refreshError: any) {
+            console.warn("Failed to refresh analytics after income update:", refreshError.message || refreshError);
             // Still return success since the income was updated
-            return NextResponse.json({ success: true });
+            return NextResponse.json({ 
+                success: true,
+                _warning: "Income updated successfully, but analytics refresh failed. Please refresh the page."
+            });
         }
-    } catch (error) {
-        console.error("Failed to update income:", error);
+    } catch (error: any) {
+        console.error("Failed to update income:", error.message || error);
         return NextResponse.json(
             { error: "Failed to update income" },
             { status: 500 }
