@@ -1,4 +1,3 @@
-// app/api/expenses/[id]/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -13,13 +12,17 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// GET a specific expense
+// Helper function to validate route params
+async function validateRouteParams(params: { id: string }) {
+  return params;
+}
+
 export async function GET(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    // No changes needed here - your existing GET logic is already correct
+    const validatedParams = await validateRouteParams(params);
     const session = await getServerSession(authOptions);
 
     if (!session || !session.user?.email) {
@@ -35,7 +38,7 @@ export async function GET(
     }
 
     const expense = await prisma.expense.findUnique({
-      where: { id: params.id },  // Accessing params.id is fine *after* the initial awaits
+      where: { id: validatedParams.id },
       include: { category: true },
     });
 
@@ -57,12 +60,12 @@ export async function GET(
   }
 }
 
-// PATCH update an expense
 export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
+    const validatedParams = await validateRouteParams(params);
     const session = await getServerSession(authOptions);
 
     if (!session || !session.user?.email) {
@@ -77,10 +80,8 @@ export async function PATCH(
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    // --- The key change is here, but you already had this.
-    //     We've already awaited getServerSession and prisma.user.findUnique.
     const expense = await prisma.expense.findUnique({
-      where: { id: params.id }, // params.id is safe to use *now*
+      where: { id: validatedParams.id },
     });
 
     if (!expense) {
@@ -115,7 +116,7 @@ export async function PATCH(
     }
 
     const updatedExpense = await prisma.expense.update({
-      where: { id: params.id }, // params.id is safe to use here too
+      where: { id: validatedParams.id },
       data: {
         ...(amount && { amount: parseFloat(amount) }),
         ...(description && { description }),
@@ -143,12 +144,12 @@ export async function PATCH(
   }
 }
 
-// DELETE an expense
 export async function DELETE(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
+    const validatedParams = await validateRouteParams(params);
     const session = await getServerSession(authOptions);
 
     if (!session || !session.user?.email) {
@@ -162,9 +163,9 @@ export async function DELETE(
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
-      // --- We are awaiting getServerSession and findUnique before params.id
+
     const expense = await prisma.expense.findUnique({
-      where: { id: params.id }, // Accessing params.id is now safe
+      where: { id: validatedParams.id },
     });
 
     if (!expense) {
@@ -176,7 +177,7 @@ export async function DELETE(
     }
 
     await prisma.expense.delete({
-      where: { id: params.id }, // And here
+      where: { id: validatedParams.id },
     });
 
     await prisma.log.create({
@@ -195,6 +196,5 @@ export async function DELETE(
     );
   }
 }
-
 
 export const PUT = PATCH;
