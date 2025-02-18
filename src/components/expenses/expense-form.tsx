@@ -1,7 +1,6 @@
-// components/expenses/expense-form.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -12,7 +11,6 @@ import { Calendar } from "@/components/ui/calendar";
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -33,6 +31,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import cloudinary from 'cloudinary-core';
 
 const expenseFormSchema = z.object({
   amount: z.coerce.number()
@@ -72,24 +71,31 @@ export default function ExpenseForm({
     },
   });
 
-  const isEditing = !!expense;
+  const [uploading, setUploading] = useState(false);
+
+  const handleFileUpload = async (file: File) => {
+    setUploading(true);
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!);
+  
+    try {
+      const response = await fetch(`https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`, {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await response.json();
+      form.setValue('receiptUrl', data.secure_url);
+    } catch (error) {
+      console.error('Error uploading file:', error);
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const handleSubmit = (data: ExpenseFormValues) => {
     onSubmit(data);
   };
-
-  // Update form when expense or categories change
-  useEffect(() => {
-    if (expense) {
-      form.reset({
-        amount: expense.amount,
-        description: expense.description,
-        date: new Date(expense.date),
-        categoryId: expense.categoryId,
-        receiptUrl: expense.receiptUrl || "",
-      });
-    }
-  }, [expense, form]);
 
   return (
     <Form {...form}>
@@ -122,7 +128,7 @@ export default function ExpenseForm({
                   <PopoverTrigger asChild>
                     <FormControl>
                       <Button
-                        type="button" // Add this line to prevent form submission
+                        type="button"
                         variant="outline"
                         className={cn(
                           "pl-3 text-left font-normal",
@@ -205,17 +211,26 @@ export default function ExpenseForm({
           name="receiptUrl"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Receipt URL</FormLabel>
+              <FormLabel>Receipt</FormLabel>
               <FormControl>
                 <Input
-                  placeholder="https://example.com/receipt.jpg"
-                  {...field}
-                  value={field.value || ""}
+                  type="file"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      handleFileUpload(file);
+                    }
+                  }}
+                  disabled={uploading}
                 />
               </FormControl>
-              <FormDescription>
-                Optional: Add a URL to your receipt image
-              </FormDescription>
+              {field.value && (
+                <div className="mt-2">
+                  <a href={field.value} target="_blank" rel="noopener noreferrer">
+                    View Receipt
+                  </a>
+                </div>
+              )}
               <FormMessage />
             </FormItem>
           )}
@@ -225,8 +240,8 @@ export default function ExpenseForm({
           <Button variant="outline" onClick={onCancel} type="button">
             Cancel
           </Button>
-          <Button type="submit">
-            {isEditing ? "Update Expense" : "Add Expense"}
+          <Button type="submit" disabled={uploading}>
+            {uploading ? "Uploading..." : (expense ? "Update Expense" : "Add Expense")}
           </Button>
         </div>
       </form>

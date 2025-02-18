@@ -103,7 +103,6 @@ export default function ExpenseList({
               <TableHead>Date</TableHead>
               <TableHead>Description</TableHead>
               <TableHead>Category</TableHead>
-              // components/expenses/expense-list.tsx (continued)
               <TableHead className="text-right">Amount</TableHead>
               <TableHead className="w-[80px]"></TableHead>
             </TableRow>
