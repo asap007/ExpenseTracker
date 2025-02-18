@@ -1,5 +1,5 @@
-// app/api/auth/[...nextauth]/route.ts
 import { PrismaAdapter } from "@auth/prisma-adapter";
+import { DEFAULT_CATEGORIES } from "@/lib/default-categories";
 import { prisma } from "@/lib/prisma";
 import { compare } from "bcryptjs";
 import NextAuth from "next-auth";
@@ -39,6 +39,31 @@ export const authOptions = {
 
         if (!isPasswordValid) {
           return null;
+        }
+
+        // Check and create default categories after successful authentication
+        const existingCategories = await prisma.category.findMany({
+          where: { userId: user.id }
+        });
+
+        if (existingCategories.length === 0) {
+          await Promise.all(
+            DEFAULT_CATEGORIES.map(categoryName =>
+              prisma.category.create({
+                data: {
+                  name: categoryName,
+                  userId: user.id
+                }
+              })
+            )
+          );
+
+          await prisma.log.create({
+            data: {
+              action: "Created default categories for user",
+              userId: user.id
+            }
+          });
         }
 
         return {
