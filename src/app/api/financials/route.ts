@@ -27,6 +27,51 @@ const CACHE_EXPIRATION_MS = 60 * 60 * 1000; // 1 hour cache
 const requestsInProgress = new Map<string, Promise<any>>();
 
 /**
+ * Retry with exponential backoff helper function
+ * @param operation Function to retry
+ * @param maxRetries Maximum number of retry attempts
+ * @param baseDelay Initial delay in milliseconds
+ * @param factor Multiplier for each subsequent delay
+ * @param jitter Whether to add randomness to delay times
+ */
+async function retryWithExponentialBackoff<T>(
+    operation: () => Promise<T>,
+    maxRetries: number = 3,
+    baseDelay: number = 1000,
+    factor: number = 2,
+    jitter: boolean = true
+): Promise<T> {
+    let lastError: any;
+    
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+        try {
+            return await operation();
+        } catch (error) {
+            lastError = error;
+            
+            if (attempt < maxRetries - 1) {
+                // Calculate delay with exponential backoff
+                let delay = baseDelay * Math.pow(factor, attempt);
+                
+                // Add jitter (±30% randomness) if enabled
+                if (jitter) {
+                    const jitterAmount = delay * 0.3;
+                    delay += Math.random() * jitterAmount - jitterAmount / 2;
+                }
+                
+                console.warn(`Retry attempt ${attempt + 1} failed, retrying in ${Math.round(delay)}ms:`, error);
+                
+                // Wait for the calculated delay
+                await new Promise(resolve => setTimeout(resolve, delay));
+            }
+        }
+    }
+    
+    // If we've exhausted all retries, throw the last error
+    throw lastError;
+}
+
+/**
  * Generate analytics data for a user
  * This function handles all the data gathering, AI analysis, and caching logic
  */
@@ -96,15 +141,20 @@ async function generateAnalyticsData(user: any) {
       }
     `;
 
-    // Make the Gemini API call with fallback
+    // Make the Gemini API call with retry and fallback
     let aiInsights = null;
     try {
-        const result = await model.generateContent(prompt);
-        const responseText = result.response.text();
-        const cleanedResponse = responseText.replace(/```json|```/g, '').trim();
-        aiInsights = JSON.parse(cleanedResponse);
+        const generateAIContent = async () => {
+            const result = await model.generateContent(prompt);
+            const responseText = result.response.text();
+            const cleanedResponse = responseText.replace(/```json|```/g, '').trim();
+            return JSON.parse(cleanedResponse);
+        };
+
+        // Attempt with exponential backoff (3 attempts, starting with 1s delay, doubling each time)
+        aiInsights = await retryWithExponentialBackoff(generateAIContent, 3, 1000, 2, true);
     } catch (aiError) {
-        console.warn("AI analysis failed, continuing with basic data:", aiError);
+        console.warn("AI analysis failed after retries, continuing with basic data:", aiError);
         // Provide basic insights when AI fails
         aiInsights = {
             analysis: "Basic analysis based on your spending data. For more detailed insights, please try again later.",
