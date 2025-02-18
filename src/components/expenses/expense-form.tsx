@@ -80,20 +80,44 @@ export default function ExpenseForm({
     formData.append('upload_preset', process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!);
   
     try {
-      const response = await fetch(`https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`, {
-        method: 'POST',
-        body: formData,
-      });
+      const response = await fetch(
+        `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`,
+        {
+          method: 'POST',
+          body: formData,
+        }
+      );
+      
+      if (!response.ok) {
+        throw new Error('Upload failed');
+      }
+  
       const data = await response.json();
-      form.setValue('receiptUrl', data.secure_url);
+      if (data.secure_url) {
+        form.setValue('receiptUrl', data.secure_url);
+        // Trigger validation after setting the value
+        await form.trigger('receiptUrl');
+      }
     } catch (error) {
       console.error('Error uploading file:', error);
+      // You might want to show an error message to the user here
     } finally {
       setUploading(false);
     }
   };
 
-  const handleSubmit = (data: ExpenseFormValues) => {
+  const handleSubmit = async (data: ExpenseFormValues) => {
+    const formData = new FormData();
+    formData.append('amount', data.amount.toString());
+    formData.append('description', data.description);
+    formData.append('date', data.date.toISOString());
+    formData.append('categoryId', data.categoryId);
+    
+    // Add the receiptUrl to formData if it exists
+    if (data.receiptUrl) {
+      formData.append('receiptUrl', data.receiptUrl);
+    }
+  
     onSubmit(data);
   };
 

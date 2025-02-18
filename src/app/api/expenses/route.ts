@@ -1,4 +1,3 @@
-// app/api/expenses/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -13,10 +12,8 @@ cloudinary.config({
     api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// GET all expenses (existing code - unchanged)
 export async function GET(req: NextRequest) {
-    // ... (Your existing GET logic)
-     try {
+  try {
     const session = await getServerSession(authOptions);
     
     if (!session || !session.user?.email) {
@@ -47,7 +44,6 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST create a new expense (modified for Cloudinary)
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -70,32 +66,13 @@ export async function POST(req: NextRequest) {
     const description = formData.get("description")?.toString();
     const date = formData.get("date")?.toString();
     const categoryId = formData.get("categoryId")?.toString();
-    const receiptFile = formData.get("receipt") as File | null;
+    const receiptUrl = formData.get("receiptUrl")?.toString();
 
     if (!amount || !description || !date || !categoryId) {
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }
       );
-    }
-      
-    let receiptUrl = null;
-      
-    if (receiptFile) {
-        // Convert the file to a buffer
-        const buffer = Buffer.from(await receiptFile.arrayBuffer());
-        
-        // Use a Promise to handle the Cloudinary upload
-        receiptUrl = await new Promise((resolve, reject) => {
-            cloudinary.uploader.upload_stream({ resource_type: 'auto' }, (error, result) => {
-                if (error) {
-                    console.error("Cloudinary upload error:", error);
-                    reject(error); // Reject the promise on error
-                    return;
-                }
-                resolve(result?.secure_url);
-            }).end(buffer);
-        });
     }
 
     const expense = await prisma.expense.create({
@@ -105,7 +82,7 @@ export async function POST(req: NextRequest) {
         date: new Date(date),
         categoryId,
         userId: user.id,
-        receiptUrl, // Store the Cloudinary URL
+        receiptUrl: receiptUrl || null,
       },
       include: { category: true },
     });
