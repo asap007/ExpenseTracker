@@ -259,39 +259,39 @@ export default function ExpensePage() {
                 </Card>
 
                 <Card>
-                <CardHeader>
+                  <CardHeader>
                     <CardTitle>Expense by Category</CardTitle>
                     <CardDescription>Distribution of your expenses</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <div className="h-[400px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                        <Pie
-                            data={data.expensesByCategory}
-                            innerRadius={80}
-                            outerRadius={120}
-                            paddingAngle={5}
-                            dataKey="value"
-                            label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
-                        >
-                            {data.expensesByCategory.map((entry: any, index: number) => (
-                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                            ))}
-                        </Pie>
-                        <Tooltip
-                            contentStyle={{
-                            backgroundColor: "#fff",
-                            border: "1px solid #ddd",
-                            borderRadius: "4px",
-                            boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
-                            }}
-                            formatter={(value: number) => formatCurrency(value)}
-                        />
-                        </PieChart>
-                    </ResponsiveContainer>
-                    </div>
-                </CardContent>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="h-[400px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                            <Pie
+                                data={data.expensesByCategory}
+                                innerRadius={80}
+                                outerRadius={120}
+                                paddingAngle={5}
+                                dataKey="value"
+                                label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                            >
+                                {data.expensesByCategory.map((entry: any, index: number) => (
+                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                ))}
+                            </Pie>
+                            <Tooltip
+                                contentStyle={{
+                                backgroundColor: "#fff",
+                                border: "1px solid #ddd",
+                                borderRadius: "4px",
+                                boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
+                                }}
+                                formatter={(value: number) => formatCurrency(value)}
+                            />
+                            </PieChart>
+                        </ResponsiveContainer>
+                        </div>
+                    </CardContent>
                 </Card>
                 </>
 

@@ -1,16 +1,8 @@
-// components/expenses/expense-list.tsx
-"use client";
+"use client"
 
-import { useState } from "react";
-import { format } from "date-fns";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { useState } from "react"
+import { format } from "date-fns"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,22 +10,11 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
-import {
-  MoreVertical,
-  Edit,
-  Trash2,
-  Receipt,
-  ExternalLink,
-} from "lucide-react";
+} from "@/components/ui/dropdown-menu"
+import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Badge } from "@/components/ui/badge"
+import { MoreVertical, Edit, Trash2, ExternalLink, Eye } from "lucide-react"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -43,60 +24,56 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import ExpenseForm from "./expense-form";
+} from "@/components/ui/alert-dialog"
+import ExpenseForm from "./expense-form"
+import { Card, CardContent } from "@/components/ui/card"
 
 interface ExpenseListProps {
-  expenses: any[];
-  categories: any[];
-  onDelete: (id: string) => void;
-  onUpdate: (id: string, data: any) => void;
+  expenses: any[]
+  categories: any[]
+  onDelete: (id: string) => void
+  onUpdate: (id: string, data: any) => void
 }
 
-export default function ExpenseList({
-  expenses,
-  categories,
-  onDelete,
-  onUpdate,
-}: ExpenseListProps) {
-  const [editingExpense, setEditingExpense] = useState<any | null>(null);
-  const [expenseToDelete, setExpenseToDelete] = useState<string | null>(null);
-  const [viewingReceipt, setViewingReceipt] = useState<string | null>(null);
+export default function ExpenseList({ expenses, categories, onDelete, onUpdate }: ExpenseListProps) {
+  const [editingExpense, setEditingExpense] = useState<any | null>(null)
+  const [expenseToDelete, setExpenseToDelete] = useState<string | null>(null)
+  const [viewingReceipt, setViewingReceipt] = useState<string | null>(null)
 
   const getCategoryName = (categoryId: string) => {
-    const category = categories.find((cat) => cat.id === categoryId);
-    return category ? category.name : "Unknown";
-  };
+    const category = categories.find((cat) => cat.id === categoryId)
+    return category ? category.name : "Unknown"
+  }
 
   const handleEditClick = (expense: any) => {
-    setEditingExpense(expense);
-  };
+    setEditingExpense(expense)
+  }
 
   const handleDeleteClick = (id: string) => {
-    setExpenseToDelete(id);
-  };
+    setExpenseToDelete(id)
+  }
 
   const handleDeleteConfirm = () => {
     if (expenseToDelete) {
-      onDelete(expenseToDelete);
-      setExpenseToDelete(null);
+      onDelete(expenseToDelete)
+      setExpenseToDelete(null)
     }
-  };
+  }
 
   const handleUpdateSubmit = (data: any) => {
     if (editingExpense) {
-      onUpdate(editingExpense.id, data);
-      setEditingExpense(null);
+      onUpdate(editingExpense.id, data)
+      setEditingExpense(null)
     }
-  };
+  }
 
   const showReceipt = (url: string) => {
-    setViewingReceipt(url);
-  };
+    setViewingReceipt(url)
+  }
 
   return (
     <>
-      <div className="rounded-md border">
+      <div className="rounded-md border overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow>
@@ -109,45 +86,53 @@ export default function ExpenseList({
           </TableHeader>
           <TableBody>
             {expenses.map((expense) => (
-              <TableRow key={expense.id}>
-                <TableCell>{format(new Date(expense.date), "PP")}</TableCell>
-                <TableCell>{expense.description}</TableCell>
-                <TableCell>
-                  <Badge variant="outline">{getCategoryName(expense.categoryId)}</Badge>
-                </TableCell>
-                <TableCell className="text-right">
-                  ${expense.amount.toFixed(2)}
+              <TableRow key={expense.id} className="group">
+                <TableCell className="font-medium">{format(new Date(expense.date), "MMM d, yyyy")}</TableCell>
+                <TableCell className="max-w-[200px] truncate" title={expense.description}>
+                  {expense.description}
                 </TableCell>
                 <TableCell>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon">
-                        <MoreVertical className="h-4 w-4" />
-                        <span className="sr-only">More</span>
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                      <DropdownMenuItem onClick={() => handleEditClick(expense)}>
-                        <Edit className="mr-2 h-4 w-4" />
-                        Edit
-                      </DropdownMenuItem>
-                      {expense.receiptUrl && (
-                        <DropdownMenuItem onClick={() => showReceipt(expense.receiptUrl)}>
-                          <Receipt className="mr-2 h-4 w-4" />
-                          View Receipt
+                  <Badge variant="outline" className="capitalize">
+                    {getCategoryName(expense.categoryId)}
+                  </Badge>
+                </TableCell>
+                <TableCell className="text-right font-medium">${expense.amount.toFixed(2)}</TableCell>
+                <TableCell>
+                  <div className="flex justify-end">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <MoreVertical className="h-4 w-4" />
+                          <span className="sr-only">Actions</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                        <DropdownMenuItem onClick={() => handleEditClick(expense)}>
+                          <Edit className="mr-2 h-4 w-4" />
+                          Edit
                         </DropdownMenuItem>
-                      )}
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        onClick={() => handleDeleteClick(expense.id)}
-                        className="text-red-600"
-                      >
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                        {expense.receiptUrl && (
+                          <DropdownMenuItem onClick={() => showReceipt(expense.receiptUrl)}>
+                            <Eye className="mr-2 h-4 w-4" />
+                            View Receipt
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => handleDeleteClick(expense.id)}
+                          className="text-destructive focus:text-destructive"
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
@@ -183,7 +168,7 @@ export default function ExpenseList({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-red-600 hover:bg-red-700">
+            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive hover:bg-destructive/90">
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -193,37 +178,34 @@ export default function ExpenseList({
       {/* Receipt Viewer */}
       {viewingReceipt && (
         <Dialog open={!!viewingReceipt} onOpenChange={(open) => !open && setViewingReceipt(null)}>
-          <DialogContent className="sm:max-w-[800px]">
+          <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-auto">
             <DialogHeader>
               <DialogTitle className="flex justify-between items-center">
                 <span>Receipt</span>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => window.open(viewingReceipt, '_blank')}
-                >
+                <Button variant="outline" size="icon" onClick={() => window.open(viewingReceipt, "_blank")}>
                   <ExternalLink className="h-4 w-4" />
                 </Button>
               </DialogTitle>
             </DialogHeader>
-            <div className="flex justify-center">
-              {viewingReceipt.endsWith('.pdf') ? (
-                <iframe
-                  src={viewingReceipt}
-                  className="w-full h-[500px]"
-                  title="Receipt PDF"
-                />
-              ) : (
-                <img
-                  src={viewingReceipt}
-                  alt="Receipt"
-                  className="max-h-[500px] object-contain"
-                />
-              )}
-            </div>
+            <Card className="overflow-hidden">
+              <CardContent className="p-0">
+                {viewingReceipt.endsWith(".pdf") ? (
+                  <iframe src={viewingReceipt} className="w-full h-[500px]" title="Receipt PDF" />
+                ) : (
+                  <div className="flex justify-center p-4">
+                    <img
+                      src={viewingReceipt || "/placeholder.svg"}
+                      alt="Receipt"
+                      className="max-h-[500px] object-contain"
+                    />
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </DialogContent>
         </Dialog>
       )}
     </>
-  );
+  )
 }
+

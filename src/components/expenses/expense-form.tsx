@@ -1,65 +1,42 @@
-"use client";
+"use client"
 
-import { useState } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
-import { format } from "date-fns";
-import { Calendar as CalendarIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { cn } from "@/lib/utils";
-import cloudinary from 'cloudinary-core';
+import { useState } from "react"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import * as z from "zod"
+import { format } from "date-fns"
+import { CalendarIcon, Upload, X, Loader2 } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Calendar } from "@/components/ui/calendar"
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
+import { Input } from "@/components/ui/input"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Textarea } from "@/components/ui/textarea"
+import { cn } from "@/lib/utils"
+import { Card, CardContent } from "@/components/ui/card"
 
 const expenseFormSchema = z.object({
-  amount: z.coerce.number()
-    .positive({ message: "Amount must be positive" }),
-  description: z.string()
+  amount: z.coerce.number().positive({ message: "Amount must be positive" }),
+  description: z
+    .string()
     .min(3, { message: "Description must be at least 3 characters" })
     .max(255, { message: "Description must be less than 255 characters" }),
   date: z.date(),
-  categoryId: z.string()
-    .min(1, { message: "Please select a category" }),
+  categoryId: z.string().min(1, { message: "Please select a category" }),
   receiptUrl: z.string().optional(),
-});
+})
 
-type ExpenseFormValues = z.infer<typeof expenseFormSchema>;
+export type ExpenseFormValues = z.infer<typeof expenseFormSchema>
 
 interface ExpenseFormProps {
-  expense?: any;
-  categories: any[];
-  onSubmit: (data: ExpenseFormValues) => void;
-  onCancel: () => void;
+  expense?: any
+  categories: any[]
+  onSubmit: (data: ExpenseFormValues) => void
+  onCancel: () => void
 }
 
-export default function ExpenseForm({
-  expense,
-  categories,
-  onSubmit,
-  onCancel,
-}: ExpenseFormProps) {
+export default function ExpenseForm({ expense, categories, onSubmit, onCancel }: ExpenseFormProps) {
   const form = useForm<ExpenseFormValues>({
     resolver: zodResolver(expenseFormSchema),
     defaultValues: {
@@ -69,57 +46,62 @@ export default function ExpenseForm({
       categoryId: expense?.categoryId || "",
       receiptUrl: expense?.receiptUrl || "",
     },
-  });
+  })
 
-  const [uploading, setUploading] = useState(false);
+  const [uploading, setUploading] = useState(false)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(expense?.receiptUrl || null)
+  const [fileName, setFileName] = useState<string | null>(null)
 
   const handleFileUpload = async (file: File) => {
-    setUploading(true);
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('upload_preset', process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!);
-  
+    setUploading(true)
+    setFileName(file.name)
+
+    // Create a preview URL for the file
+    const localPreviewUrl = URL.createObjectURL(file)
+    setPreviewUrl(localPreviewUrl)
+
+    const formData = new FormData()
+    formData.append("file", file)
+    formData.append("upload_preset", process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!)
+
     try {
       const response = await fetch(
         `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`,
         {
-          method: 'POST',
+          method: "POST",
           body: formData,
-        }
-      );
-      
+        },
+      )
+
       if (!response.ok) {
-        throw new Error('Upload failed');
+        throw new Error("Upload failed")
       }
-  
-      const data = await response.json();
+
+      const data = await response.json()
       if (data.secure_url) {
-        form.setValue('receiptUrl', data.secure_url);
+        form.setValue("receiptUrl", data.secure_url)
         // Trigger validation after setting the value
-        await form.trigger('receiptUrl');
+        await form.trigger("receiptUrl")
       }
     } catch (error) {
-      console.error('Error uploading file:', error);
+      console.error("Error uploading file:", error)
+      setPreviewUrl(null)
+      setFileName(null)
       // You might want to show an error message to the user here
     } finally {
-      setUploading(false);
+      setUploading(false)
     }
-  };
+  }
+
+  const removeFile = () => {
+    form.setValue("receiptUrl", "")
+    setPreviewUrl(null)
+    setFileName(null)
+  }
 
   const handleSubmit = async (data: ExpenseFormValues) => {
-    const formData = new FormData();
-    formData.append('amount', data.amount.toString());
-    formData.append('description', data.description);
-    formData.append('date', data.date.toISOString());
-    formData.append('categoryId', data.categoryId);
-    
-    // Add the receiptUrl to formData if it exists
-    if (data.receiptUrl) {
-      formData.append('receiptUrl', data.receiptUrl);
-    }
-  
-    onSubmit(data);
-  };
+    onSubmit(data)
+  }
 
   return (
     <Form {...form}>
@@ -133,7 +115,7 @@ export default function ExpenseForm({
                 <FormLabel>Amount</FormLabel>
                 <FormControl>
                   <div className="relative">
-                    <span className="absolute left-3 top-2.5">$</span>
+                    <span className="absolute left-3 top-2.5 text-muted-foreground">$</span>
                     <Input type="number" step="0.01" className="pl-7" {...field} />
                   </div>
                 </FormControl>
@@ -154,27 +136,15 @@ export default function ExpenseForm({
                       <Button
                         type="button"
                         variant="outline"
-                        className={cn(
-                          "pl-3 text-left font-normal",
-                          !field.value && "text-muted-foreground"
-                        )}
+                        className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}
                       >
-                        {field.value ? (
-                          format(field.value, "PPP")
-                        ) : (
-                          <span>Pick a date</span>
-                        )}
+                        {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
                         <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                       </Button>
                     </FormControl>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={field.value}
-                      onSelect={field.onChange}
-                      initialFocus
-                    />
+                    <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
                   </PopoverContent>
                 </Popover>
                 <FormMessage />
@@ -189,11 +159,7 @@ export default function ExpenseForm({
           render={({ field }) => (
             <FormItem>
               <FormLabel>Category</FormLabel>
-              <Select
-                onValueChange={field.onChange}
-                defaultValue={field.value}
-                value={field.value}
-              >
+              <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Select a category" />
@@ -219,11 +185,7 @@ export default function ExpenseForm({
             <FormItem>
               <FormLabel>Description</FormLabel>
               <FormControl>
-                <Textarea
-                  placeholder="What did you spend on?"
-                  className="resize-none"
-                  {...field}
-                />
+                <Textarea placeholder="What did you spend on?" className="resize-none" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -237,24 +199,73 @@ export default function ExpenseForm({
             <FormItem>
               <FormLabel>Receipt</FormLabel>
               <FormControl>
-                <Input
-                  type="file"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      handleFileUpload(file);
-                    }
-                  }}
-                  disabled={uploading}
-                />
+                {previewUrl ? (
+                  <Card className="overflow-hidden">
+                    <CardContent className="p-0 relative">
+                      {previewUrl.endsWith(".pdf") ? (
+                        <div className="p-4 flex items-center">
+                          <div className="flex-1 truncate">{fileName || "Receipt.pdf"}</div>
+                          <Button type="button" variant="ghost" size="icon" onClick={removeFile} className="h-8 w-8">
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="relative">
+                          <img
+                            src={previewUrl || "/placeholder.svg"}
+                            alt="Receipt preview"
+                            className="w-full h-auto max-h-[200px] object-contain"
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={removeFile}
+                            className="absolute top-2 right-2 h-8 w-8 bg-background/80 backdrop-blur-sm"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <div className="border rounded-md p-4 flex flex-col items-center justify-center gap-2 h-[120px]">
+                    <Input
+                      type="file"
+                      id="receipt-upload"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file) {
+                          handleFileUpload(file)
+                        }
+                      }}
+                      disabled={uploading}
+                    />
+                    <label
+                      htmlFor="receipt-upload"
+                      className={cn(
+                        "flex flex-col items-center justify-center cursor-pointer w-full h-full",
+                        uploading && "pointer-events-none",
+                      )}
+                    >
+                      {uploading ? (
+                        <>
+                          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                          <p className="text-sm text-muted-foreground mt-2">Uploading...</p>
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="h-6 w-6 text-muted-foreground" />
+                          <p className="text-sm text-muted-foreground mt-2">Click to upload a receipt</p>
+                          <p className="text-xs text-muted-foreground">or drag and drop</p>
+                        </>
+                      )}
+                    </label>
+                  </div>
+                )}
               </FormControl>
-              {field.value && (
-                <div className="mt-2">
-                  <a href={field.value} target="_blank" rel="noopener noreferrer">
-                    View Receipt
-                  </a>
-                </div>
-              )}
               <FormMessage />
             </FormItem>
           )}
@@ -265,10 +276,11 @@ export default function ExpenseForm({
             Cancel
           </Button>
           <Button type="submit" disabled={uploading}>
-            {uploading ? "Uploading..." : (expense ? "Update Expense" : "Add Expense")}
+            {uploading ? "Uploading..." : expense ? "Update Expense" : "Add Expense"}
           </Button>
         </div>
       </form>
     </Form>
-  );
+  )
 }
+
