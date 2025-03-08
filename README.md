@@ -4,8 +4,10 @@ A comprehensive, AI-powered expense tracking application built with modern web t
 
 ## 📸 Screenshots
 
+![Expense Analytics](https://github.com/user-attachments/assets/0a1e19d9-eec2-4534-ba97-e4a4e09ee626)
 ![Expense Analytics](https://github.com/user-attachments/assets/1fe5756d-1576-4025-b5bb-f311fcbf103d)
-![Expense Tracker Dashboard](https://github.com/user-attachments/assets/aa48f482-185f-4c4f-b334-1625dd4cc123)
+![Expense Tracker Dashboard](https://github.com/user-attachments/assets/b236a7b8-4909-40a7-95f7-4ce807cbd8a0)
+![Expense Tracker AI](https://github.com/user-attachments/assets/f92d440d-2439-4b83-bfa5-a47aa9b4c809)
 
 ## 🚀 Features
 
